@@ -1,0 +1,82 @@
+/* ===== RESET ===== */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+/* ===== DESIGN TOKENS ===== */
+:root{
+  --bg:#0F0D08;
+  --bg-up:#171410;
+  --bg-card:#1C1914;
+  --bg-card-hi:#242018;
+  --gold:#D4AD52;
+  --gold-hot:#F0D060;
+  --gold-white:#FFF2D0;
+  --gold-mid:#B89838;
+  --gold-dim:#8A7228;
+  --gold-rule:rgba(212,173,82,.15);
+  --red:#E8503E;
+  --green:#5CC840;
+  --text-soft:#9A8240;
+  --text-dim:#5A4A28;
+  --text-ghost:#3A3018;
+}
+
+html{scroll-behavior:smooth}
+body{
+  font-family:'Source Serif 4',serif;
+  background:var(--bg);
+  color:var(--gold);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ===== SCROLL REVEAL ===== */
+.rv{
+  opacity:0;
+  transform:translateY(18px);
+  transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);
+}
+.rv.v{opacity:1;transform:translateY(0)}
+.rv-d1{transition-delay:.1s}
+.rv-d2{transition-delay:.2s}
+.rv-d3{transition-delay:.3s}
+.rv-d4{transition-delay:.4s}
+
+/* ===== BUTTONS ===== */
+.btn{
+  display:inline-block;
+  font-family:'Playfair Display',serif;
+  font-weight:900;
+  text-transform:uppercase;
+  text-decoration:none;
+  letter-spacing:2px;
+  transition:all .3s;
+}
+.btn-gold{
+  background:var(--gold);
+  color:var(--bg);
+  font-size:1.05rem;
+  padding:.85rem 2.75rem;
+  box-shadow:0 0 20px rgba(212,173,82,.12);
+}
+.btn-gold:hover{
+  background:var(--gold-hot);
+  transform:translateY(-2px);
+  box-shadow:0 6px 25px rgba(212,173,82,.2);
+}
+.btn-line{
+  background:transparent;
+  color:var(--gold);
+  font-size:.85rem;
+  padding:.65rem 2rem;
+  border:2px solid var(--gold-dim);
+}
+.btn-line:hover{
+  background:var(--gold);
+  color:var(--bg);
+  border-color:var(--gold);
+  transform:translateY(-1px);
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes bp{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes gp{0%,100%{box-shadow:0 0 10px rgba(212,173,82,.1)}50%{box-shadow:0 0 20px rgba(212,173,82,.35),0 0 40px rgba(212,173,82,.1)}}
