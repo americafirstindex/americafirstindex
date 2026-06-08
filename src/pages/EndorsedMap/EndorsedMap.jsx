@@ -22,11 +22,11 @@ function getBBox(feat) {
   return { minLon: mn[0], minLat: mn[1], maxLon: mx[0], maxLat: mx[1] };
 }
 
-function pointInPoly(x, y, pts) {
+function pointInPolyNorm(nx, ny, ring) {
   let inside = false;
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const [xi, yi] = pts[i], [xj, yj] = pts[j];
-    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > ny) !== (yj > ny) && nx < (xj - xi) * (ny - yi) / (yj - yi) + xi) inside = !inside;
   }
   return inside;
 }
@@ -45,6 +45,7 @@ function computeGeoBounds(features) {
         }
   }
   return {
+    minLon, maxLon, minLat, maxLat,
     geoW: maxLon - minLon,
     geoH: maxLat - minLat,
     geoCx: (minLon + maxLon) / 2,
@@ -52,23 +53,74 @@ function computeGeoBounds(features) {
   };
 }
 
+/**
+ * Build Path2D objects in normalized [0,1] space once at load time.
+ * nx = (lon - minLon) / geoW   (0 = west edge, 1 = east edge)
+ * ny = (maxLat - lat) / geoH   (0 = north edge, 1 = south edge)
+ *
+ * At draw time a single ctx.setTransform call maps this space to the canvas,
+ * so no per-vertex projection happens in the animation loop.
+ */
+function buildFeaturePaths(features, bounds) {
+  const { minLon, maxLat, geoW, geoH } = bounds;
+
+  return features.map((feat) => {
+    const key = getDistrictKey(feat);
+    const isEndorsed = key in ENDORSED;
+    const polys = feat.geometry.type === 'Polygon'
+      ? [feat.geometry.coordinates]
+      : feat.geometry.coordinates;
+
+    const path = new Path2D();
+    let hitRing = null; // normalized outer ring for ray-cast hit testing
+    let bNx0 = 1, bNy0 = 1, bNx1 = 0, bNy1 = 0;
+
+    for (let pi = 0; pi < polys.length; pi++) {
+      for (let ri = 0; ri < polys[pi].length; ri++) {
+        const ring = polys[pi][ri];
+        const normRing = new Array(ring.length);
+        for (let i = 0; i < ring.length; i++) {
+          const nx = (ring[i][0] - minLon) / geoW;
+          const ny = (maxLat - ring[i][1]) / geoH;
+          normRing[i] = [nx, ny];
+          if (nx < bNx0) bNx0 = nx; if (nx > bNx1) bNx1 = nx;
+          if (ny < bNy0) bNy0 = ny; if (ny > bNy1) bNy1 = ny;
+        }
+        if (pi === 0 && ri === 0) hitRing = normRing;
+        for (let i = 0; i < normRing.length; i++) {
+          const [nx, ny] = normRing[i];
+          if (i === 0) path.moveTo(nx, ny); else path.lineTo(nx, ny);
+        }
+        path.closePath();
+      }
+    }
+
+    return {
+      key, path, hitRing, isEndorsed,
+      endorsed: isEndorsed ? ENDORSED[key] : null,
+      lonLatBbox: getBBox(feat),   // kept in lon/lat for zoomToFeat math
+      bNx0, bNy0, bNx1, bNy1,
+      bCnx: (bNx0 + bNx1) / 2,
+      bCny: (bNy0 + bNy1) / 2,
+      bNWidth: bNx1 - bNx0,
+    };
+  });
+}
+
 export default function EndorsedMap() {
   const canvasRef = useRef(null);
   const [activeCard, setActiveCard] = useState(null);
   const [geo, setGeo] = useState(null);
 
-  // Mutable refs shared between card-click handler and the draw loop
   const camRef = useRef({ x: 0, y: 0, zoom: 1 });
   const targetCamRef = useRef({ x: 0, y: 0, zoom: 1 });
   const selectedKeyRef = useRef(null);
   const zoomFnRef = useRef(null);
 
-  // Load GEO data once
   useEffect(() => {
     loadGeo().then(setGeo);
   }, []);
 
-  // Canvas effect runs once GEO is ready
   useEffect(() => {
     if (!geo) return;
     const canvas = canvasRef.current;
@@ -80,13 +132,22 @@ export default function EndorsedMap() {
     const bounds = computeGeoBounds(geo.features);
     const { geoW, geoH, geoCx, geoCy } = bounds;
 
+    // Build all Path2D objects once — never rebuilt unless geo changes
+    const prebuilt = buildFeaturePaths(geo.features, bounds);
+
     let hoveredKey = null;
     let drawTime = 0;
-    let rafDraw = null;
+    let needsRedraw = true;
+    let rafLoop = null;
     let rafAnim = null;
+    let pulseTimer = null;
 
     const cam = camRef.current;
     const targetCam = targetCamRef.current;
+
+    const hasActiveEndorsed = Object.values(ENDORSED).some((e) => e.status === 'active');
+
+    function markDirty() { needsRedraw = true; }
 
     function resize() {
       const rect = canvas.parentElement.getBoundingClientRect();
@@ -94,109 +155,123 @@ export default function EndorsedMap() {
       canvas.height = rect.height * dpr;
       canvas.style.width = rect.width + 'px';
       canvas.style.height = rect.height + 'px';
+      markDirty();
     }
 
-    function lonLatToScreen(lon, lat) {
+    /**
+     * Returns the affine transform parameters that map normalized [0,1] coords
+     * to CSS pixel space given the current cam state.
+     */
+    function getTransform() {
       const w = canvas.width / dpr;
       const h = canvas.height / dpr;
       const scale = Math.min(w / geoW, h / geoH) * 0.85 * cam.zoom;
-      return [
-        (lon - geoCx) * scale + w / 2 + cam.x,
-        -(lat - geoCy) * scale + h / 2 + cam.y,
-      ];
+      const scaleX = geoW * scale;   // CSS pixels per normalized unit (X)
+      const scaleY = geoH * scale;   // CSS pixels per normalized unit (Y)
+      const pixelScale = Math.min(scaleX, scaleY); // for line-width conversion
+      const transX = w / 2 + cam.x - 0.5 * geoW * scale;
+      const transY = h / 2 + cam.y - 0.5 * geoH * scale;
+      return { w, h, scale, scaleX, scaleY, pixelScale, transX, transY };
+    }
+
+    // Convert normalized coords to CSS pixels (for labels, zoom calculations)
+    function normToCSS(nx, ny, t) {
+      return [nx * t.scaleX + t.transX, ny * t.scaleY + t.transY];
     }
 
     function draw() {
-      const w = canvas.width / dpr;
-      const h = canvas.height / dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      const t = getTransform();
       drawTime += 0.016;
 
-      for (const feat of geo.features) {
-        const key = getDistrictKey(feat);
-        const isEndorsed = key in ENDORSED;
-        const isHovered = key === hoveredKey;
+      // Clear at identity (DPR-scaled)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, t.w, t.h);
+
+      // Apply geo transform: normalized [0,1] → CSS pixels, baked with DPR
+      // All ctx.fill(path) / ctx.stroke(path) calls run in this transformed space.
+      // lineWidth is in normalized units; convert: cssW / pixelScale
+      // shadowBlur is in device pixels and unaffected by transform — kept as-is.
+      ctx.setTransform(t.scaleX * dpr, 0, 0, t.scaleY * dpr, t.transX * dpr, t.transY * dpr);
+
+      for (const feat of prebuilt) {
+        const { key, path, isEndorsed, endorsed } = feat;
+        const isHovered  = key === hoveredKey;
         const isSelected = key === selectedKeyRef.current;
-        const coords = feat.geometry.type === 'Polygon'
-          ? [feat.geometry.coordinates]
-          : feat.geometry.coordinates;
 
-        for (const poly of coords) {
-          for (let ri = 0; ri < poly.length; ri++) {
-            const ring = poly[ri];
-            ctx.beginPath();
-            for (let i = 0; i < ring.length; i++) {
-              const [x, y] = lonLatToScreen(ring[i][0], ring[i][1]);
-              if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-            ctx.closePath();
-
-            if (ri === 0) {
-              if (isEndorsed) {
-                if (ENDORSED[key].status === 'active') {
-                  const pulse = 0.5 + 0.5 * Math.sin(drawTime * 1.5);
-                  const baseA = isSelected ? 0.2 : isHovered ? 0.15 : 0.05;
-                  const pulseA = isSelected ? 0.2 : isHovered ? 0.15 : 0.1;
-                  ctx.fillStyle = `rgba(232,80,62,${baseA + pulse * pulseA})`;
-                } else {
-                  ctx.fillStyle = `rgba(92,200,64,${isSelected ? 0.25 : isHovered ? 0.18 : 0.1})`;
-                }
-              } else {
-                ctx.fillStyle = isHovered ? 'rgba(212,173,82,0.1)' : 'rgba(212,173,82,0.04)';
-              }
-              ctx.fill();
-            }
-
-            if (isEndorsed) {
-              if (ENDORSED[key].status === 'active') {
-                const pulse = 0.5 + 0.5 * Math.sin(drawTime * 1.5);
-                ctx.strokeStyle = `rgba(232,80,62,${isSelected ? 0.6 + pulse * 0.4 : 0.2 + pulse * 0.35})`;
-                ctx.lineWidth = isSelected ? 2.5 : 1.5;
-                ctx.shadowColor = `rgba(232,80,62,${isSelected ? 0.1 + pulse * 0.25 : 0.03 + pulse * 0.15})`;
-                ctx.shadowBlur = isSelected ? 6 + pulse * 10 : 3 + pulse * 7;
-              } else {
-                ctx.strokeStyle = isSelected ? 'rgba(92,200,64,0.7)' : 'rgba(92,200,64,0.35)';
-                ctx.lineWidth = isSelected ? 2.5 : 1.5;
-                ctx.shadowColor = 'transparent';
-                ctx.shadowBlur = 0;
-              }
-            } else {
-              ctx.strokeStyle = 'rgba(212,173,82,0.12)';
-              ctx.lineWidth = 0.5;
-              ctx.shadowColor = 'transparent';
-              ctx.shadowBlur = 0;
-            }
-            ctx.stroke();
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
+        // --- Fill ---
+        if (isEndorsed) {
+          if (endorsed.status === 'active') {
+            const pulse = 0.5 + 0.5 * Math.sin(drawTime * 1.5);
+            const baseA = isSelected ? 0.2 : isHovered ? 0.15 : 0.05;
+            const pulseA = isSelected ? 0.2 : isHovered ? 0.15 : 0.1;
+            ctx.fillStyle = `rgba(232,80,62,${(baseA + pulse * pulseA).toFixed(3)})`;
+          } else {
+            ctx.fillStyle = `rgba(92,200,64,${isSelected ? 0.25 : isHovered ? 0.18 : 0.1})`;
           }
+        } else {
+          ctx.fillStyle = isHovered ? 'rgba(212,173,82,0.1)' : 'rgba(212,173,82,0.04)';
         }
+        ctx.fill(path, 'evenodd');
 
-        if (isEndorsed && cam.zoom > 1.5) {
-          const bb = getBBox(feat);
-          const [cx2, cy2] = lonLatToScreen((bb.minLon + bb.maxLon) / 2, (bb.minLat + bb.maxLat) / 2);
-          const [x1] = lonLatToScreen(bb.minLon, bb.minLat);
-          const [x2] = lonLatToScreen(bb.maxLon, bb.maxLat);
-          const fontSize = Math.max(8, Math.min(Math.abs(x2 - x1) * 0.18, 16));
-          ctx.font = `bold ${fontSize}px "Source Serif 4", serif`;
-          ctx.fillStyle = 'rgba(212,173,82,0.8)';
-          ctx.textAlign = 'center';
-          ctx.fillText(key, cx2, cy2);
+        // --- Stroke ---
+        if (isEndorsed) {
+          if (endorsed.status === 'active') {
+            const pulse = 0.5 + 0.5 * Math.sin(drawTime * 1.5);
+            ctx.strokeStyle = `rgba(232,80,62,${isSelected ? (0.6 + pulse * 0.4).toFixed(3) : (0.2 + pulse * 0.35).toFixed(3)})`;
+            ctx.lineWidth   = (isSelected ? 2.5 : 1.5) / t.pixelScale;
+            ctx.shadowColor = `rgba(232,80,62,${isSelected ? (0.1 + pulse * 0.25).toFixed(3) : (0.03 + pulse * 0.15).toFixed(3)})`;
+            ctx.shadowBlur  = isSelected ? 6 + pulse * 10 : 3 + pulse * 7;
+          } else {
+            ctx.strokeStyle = isSelected ? 'rgba(92,200,64,0.7)' : 'rgba(92,200,64,0.35)';
+            ctx.lineWidth   = (isSelected ? 2.5 : 1.5) / t.pixelScale;
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur  = 0;
+          }
+        } else {
+          ctx.strokeStyle = 'rgba(212,173,82,0.12)';
+          ctx.lineWidth   = 0.5 / t.pixelScale;
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur  = 0;
         }
+        ctx.stroke(path);
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur  = 0;
       }
 
-      rafDraw = requestAnimationFrame(draw);
+      // District labels for endorsed districts when sufficiently zoomed in
+      if (cam.zoom > 1.5) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.textAlign = 'center';
+        for (const feat of prebuilt) {
+          if (!feat.isEndorsed) continue;
+          const [cx, cy] = normToCSS(feat.bCnx, feat.bCny, t);
+          const [x1]     = normToCSS(feat.bNx0, feat.bCny, t);
+          const [x2]     = normToCSS(feat.bNx1, feat.bCny, t);
+          const fontSize = Math.max(8, Math.min(Math.abs(x2 - x1) * 0.18, 16));
+          ctx.font      = `bold ${fontSize}px "Source Serif 4", serif`;
+          ctx.fillStyle = 'rgba(212,173,82,0.8)';
+          ctx.fillText(feat.key, cx, cy);
+        }
+      }
+    }
+
+    function loop() {
+      if (needsRedraw) {
+        draw();
+        needsRedraw = false;
+      }
+      rafLoop = requestAnimationFrame(loop);
     }
 
     function animateCam() {
       const sp = 0.08;
-      cam.x += (targetCam.x - cam.x) * sp;
-      cam.y += (targetCam.y - cam.y) * sp;
+      cam.x    += (targetCam.x    - cam.x)    * sp;
+      cam.y    += (targetCam.y    - cam.y)    * sp;
       cam.zoom += (targetCam.zoom - cam.zoom) * sp;
+      markDirty();
       if (
-        Math.abs(cam.x - targetCam.x) > 0.1 ||
-        Math.abs(cam.y - targetCam.y) > 0.1 ||
+        Math.abs(cam.x    - targetCam.x)    > 0.1 ||
+        Math.abs(cam.y    - targetCam.y)    > 0.1 ||
         Math.abs(cam.zoom - targetCam.zoom) > 0.01
       ) {
         rafAnim = requestAnimationFrame(animateCam);
@@ -204,9 +279,9 @@ export default function EndorsedMap() {
     }
 
     function zoomToFeat(feat) {
-      const bb = getBBox(feat);
-      const w = canvas.width / dpr;
-      const h = canvas.height / dpr;
+      const bb = feat.lonLatBbox;
+      const w  = canvas.width / dpr;
+      const h  = canvas.height / dpr;
       const baseScale = Math.min(w / geoW, h / geoH) * 0.85;
       const tz = Math.min(
         (w * 0.6) / ((bb.maxLon - bb.minLon) * baseScale),
@@ -216,59 +291,66 @@ export default function EndorsedMap() {
       const cx2 = (bb.minLon + bb.maxLon) / 2;
       const cy2 = (bb.minLat + bb.maxLat) / 2;
       targetCam.zoom = tz;
-      targetCam.x = -(cx2 - geoCx) * baseScale * tz;
-      targetCam.y = (cy2 - geoCy) * baseScale * tz;
+      targetCam.x    = -(cx2 - geoCx) * baseScale * tz;
+      targetCam.y    =  (cy2 - geoCy) * baseScale * tz;
       cancelAnimationFrame(rafAnim);
       rafAnim = requestAnimationFrame(animateCam);
     }
 
-    // Expose zoomToFeat for card clicks
     zoomFnRef.current = (distKey) => {
-      const feat = geo.features.find((f) => getDistrictKey(f) === distKey);
+      const feat = prebuilt.find((f) => f.key === distKey);
       if (feat) {
         selectedKeyRef.current = distKey;
         zoomToFeat(feat);
+        markDirty();
       }
     };
 
     function resetView() {
       targetCam.x = 0; targetCam.y = 0; targetCam.zoom = 1;
-      cam.x = 0; cam.y = 0; cam.zoom = 1;
+      cam.x = 0;       cam.y = 0;       cam.zoom = 1;
       selectedKeyRef.current = null;
       setActiveCard(null);
+      markDirty();
+    }
+
+    // Hit test in normalized coordinate space — no transform math per frame
+    function screenToNorm(sx, sy) {
+      const t = getTransform();
+      return [(sx - t.transX) / t.scaleX, (sy - t.transY) / t.scaleY];
     }
 
     function hitTest(mx, my) {
-      for (let fi = geo.features.length - 1; fi >= 0; fi--) {
-        const feat = geo.features[fi];
-        const coords = feat.geometry.type === 'Polygon'
-          ? [feat.geometry.coordinates]
-          : feat.geometry.coordinates;
-        for (const poly of coords) {
-          const pts = poly[0].map(([lon, lat]) => lonLatToScreen(lon, lat));
-          if (pointInPoly(mx, my, pts)) return feat;
-        }
+      const [nx, ny] = screenToNorm(mx, my);
+      // Iterate in reverse so top-rendered (last drawn) features get priority
+      for (let fi = prebuilt.length - 1; fi >= 0; fi--) {
+        const feat = prebuilt[fi];
+        // Quick bbox rejection in normalized space
+        if (nx < feat.bNx0 || nx > feat.bNx1 || ny < feat.bNy0 || ny > feat.bNy1) continue;
+        if (feat.hitRing && pointInPolyNorm(nx, ny, feat.hitRing)) return feat;
       }
       return null;
     }
 
     function onMouseMove(e) {
-      const r = canvas.getBoundingClientRect();
+      const r    = canvas.getBoundingClientRect();
       const feat = hitTest(e.clientX - r.left, e.clientY - r.top);
-      hoveredKey = feat ? getDistrictKey(feat) : null;
-      canvas.style.cursor = feat && getDistrictKey(feat) in ENDORSED ? 'pointer' : 'default';
+      const key  = feat ? feat.key : null;
+      if (key !== hoveredKey) {
+        hoveredKey = key;
+        canvas.style.cursor = feat && feat.isEndorsed ? 'pointer' : 'default';
+        markDirty();
+      }
     }
 
     function onClick(e) {
-      const r = canvas.getBoundingClientRect();
+      const r    = canvas.getBoundingClientRect();
       const feat = hitTest(e.clientX - r.left, e.clientY - r.top);
-      if (!feat) return;
-      const key = getDistrictKey(feat);
-      if (key in ENDORSED) {
-        selectedKeyRef.current = key;
-        zoomToFeat(feat);
-        setActiveCard(ENDORSED[key].cardId);
-      }
+      if (!feat || !feat.isEndorsed) return;
+      selectedKeyRef.current = feat.key;
+      zoomToFeat(feat);
+      setActiveCard(feat.endorsed.cardId);
+      markDirty();
     }
 
     function onWheel(e) {
@@ -280,9 +362,9 @@ export default function EndorsedMap() {
 
     let dragging = false, dragStart = { x: 0, y: 0 }, camStart = { x: 0, y: 0 };
     function onMouseDown(e) {
-      dragging = true;
+      dragging  = true;
       dragStart = { x: e.clientX, y: e.clientY };
-      camStart = { x: targetCam.x, y: targetCam.y };
+      camStart  = { x: targetCam.x, y: targetCam.y };
     }
     function onWindowMove(e) {
       if (!dragging) return;
@@ -290,41 +372,49 @@ export default function EndorsedMap() {
       targetCam.y = camStart.y + e.clientY - dragStart.y;
       cam.x = targetCam.x;
       cam.y = targetCam.y;
+      markDirty();
     }
     function onMouseUp() { dragging = false; }
 
     const zoomInBtn  = document.getElementById('zoomIn');
     const zoomOutBtn = document.getElementById('zoomOut');
     const zoomRstBtn = document.getElementById('zoomReset');
-    const onZoomIn  = () => { targetCam.zoom = Math.min(targetCam.zoom * 1.5, 15); cancelAnimationFrame(rafAnim); rafAnim = requestAnimationFrame(animateCam); };
-    const onZoomOut = () => { targetCam.zoom = Math.max(targetCam.zoom / 1.5, 0.5); cancelAnimationFrame(rafAnim); rafAnim = requestAnimationFrame(animateCam); };
+    const onZoomIn   = () => { targetCam.zoom = Math.min(targetCam.zoom * 1.5, 15); cancelAnimationFrame(rafAnim); rafAnim = requestAnimationFrame(animateCam); };
+    const onZoomOut  = () => { targetCam.zoom = Math.max(targetCam.zoom / 1.5, 0.5); cancelAnimationFrame(rafAnim); rafAnim = requestAnimationFrame(animateCam); };
 
-    canvas.addEventListener('mousemove', onMouseMove);
-    canvas.addEventListener('click', onClick);
-    canvas.addEventListener('wheel', onWheel, { passive: false });
-    canvas.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mousemove', onWindowMove);
-    window.addEventListener('mouseup', onMouseUp);
-    zoomInBtn?.addEventListener('click', onZoomIn);
+    canvas.addEventListener('mousemove',  onMouseMove);
+    canvas.addEventListener('click',      onClick);
+    canvas.addEventListener('wheel',      onWheel, { passive: false });
+    canvas.addEventListener('mousedown',  onMouseDown);
+    window.addEventListener('mousemove',  onWindowMove);
+    window.addEventListener('mouseup',    onMouseUp);
+    zoomInBtn?.addEventListener('click',  onZoomIn);
     zoomOutBtn?.addEventListener('click', onZoomOut);
     zoomRstBtn?.addEventListener('click', resetView);
+
+    // Drive the pulse animation for active endorsed districts (~15 fps is plenty
+    // for a smooth sinusoidal pulse; full 60fps only runs during user interaction)
+    if (hasActiveEndorsed) {
+      pulseTimer = setInterval(markDirty, 67);
+    }
 
     const ro = new ResizeObserver(resize);
     ro.observe(canvas.parentElement);
 
     resize();
-    draw();
+    loop();
 
     return () => {
-      cancelAnimationFrame(rafDraw);
+      cancelAnimationFrame(rafLoop);
       cancelAnimationFrame(rafAnim);
-      canvas.removeEventListener('mousemove', onMouseMove);
-      canvas.removeEventListener('click', onClick);
-      canvas.removeEventListener('wheel', onWheel);
-      canvas.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mousemove', onWindowMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      zoomInBtn?.removeEventListener('click', onZoomIn);
+      if (pulseTimer) clearInterval(pulseTimer);
+      canvas.removeEventListener('mousemove',  onMouseMove);
+      canvas.removeEventListener('click',      onClick);
+      canvas.removeEventListener('wheel',      onWheel);
+      canvas.removeEventListener('mousedown',  onMouseDown);
+      window.removeEventListener('mousemove',  onWindowMove);
+      window.removeEventListener('mouseup',    onMouseUp);
+      zoomInBtn?.removeEventListener('click',  onZoomIn);
       zoomOutBtn?.removeEventListener('click', onZoomOut);
       zoomRstBtn?.removeEventListener('click', resetView);
       ro.disconnect();
@@ -340,7 +430,6 @@ export default function EndorsedMap() {
   return (
     <div className="em-page">
       <div className="em-page-inner">
-        {/* Header */}
         <header className="hdr">
           <a href="/" className="hdr-left">
             <img src={logoSrc} alt="America First Index" />
@@ -351,7 +440,6 @@ export default function EndorsedMap() {
           </div>
         </header>
 
-        {/* Title */}
         <section className="title-sec">
           <p className="lbl">Endorsed Candidates</p>
           <h1>Where We&rsquo;re <span style={{ color: '#F0D060' }}>Fighting</span></h1>
@@ -362,7 +450,6 @@ export default function EndorsedMap() {
           </p>
         </section>
 
-        {/* Map */}
         <div className="map-wrap">
           <div className="map-row">
             <div className="map-main">

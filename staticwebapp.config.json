@@ -1,0 +1,22 @@
+{
+  "globalHeaders": {
+    "cache-control": "public, max-age=86400"
+  },
+  "mimeTypes": {
+    ".json": "application/json",
+    ".geojson": "application/json"
+  },
+  "routes": [
+    {
+      "route": "/geo.json",
+      "headers": {
+        "cache-control": "public, max-age=604800, immutable"
+      }
+    },
+    {
+      "route": "/*",
+      "serve": "/index.html",
+      "statusCode": 200
+    }
+  ]
+}
