@@ -64,8 +64,7 @@
   border:1px solid var(--gold-rule);
   border-radius:8px;overflow:hidden;
 }
-.map-row{display:flex}
-.map-main{flex:1;position:relative;min-height:500px}
+.map-main{width:100%;position:relative;min-height:500px}
 #mapCanvas{width:100%;height:100%;display:block;cursor:grab}
 #mapCanvas:active{cursor:grabbing}
 
@@ -76,20 +75,45 @@
   font-size:.75rem;letter-spacing:3px;text-transform:uppercase;
 }
 
-/* ===== MAP PANEL ===== */
+/* ===== MAP PANEL (carousel container) ===== */
 .map-panel{
-  width:320px;border-left:1px solid var(--gold-rule);
-  padding:1.5rem;display:flex;flex-direction:column;gap:1rem;
-  background:var(--bg-card);overflow-y:auto;max-height:600px;
+  width:100%;border-bottom:1px solid var(--gold-rule);
+  padding:1.25rem 1.5rem 1rem;
+  background:var(--bg-card);overflow:hidden;
 }
-.map-panel h3{
-  font-family:'Playfair Display',serif;font-weight:900;
-  font-size:1.1rem;color:var(--gold-white);margin-bottom:.25rem;
-}
-.map-panel .mp-sub{font-size:.8rem;color:var(--text-soft);margin-bottom:.75rem;line-height:1.5}
 
-/* ===== CANDIDATE CARDS (panel) ===== */
+/* ===== CAROUSEL HEADER ===== */
+.mp-carousel-header{
+  display:flex;align-items:baseline;gap:1rem;margin-bottom:.75rem;
+}
+.mp-carousel-header h3{
+  font-family:'Playfair Display',serif;font-weight:900;
+  font-size:1.1rem;color:var(--gold-white);white-space:nowrap;
+}
+.mp-carousel-header .mp-sub{
+  font-size:.8rem;color:var(--text-soft);line-height:1.5;margin:0;
+}
+
+/* ===== CAROUSEL SCROLL AREA ===== */
+.mp-scroll-area{overflow:hidden}
+.mp-track{
+  display:flex;gap:1rem;width:max-content;
+}
+.mp-track.revolving{
+  animation:carousel-scroll linear infinite;
+}
+.mp-track.revolving:hover{
+  animation-play-state:paused;
+}
+
+@keyframes carousel-scroll{
+  from{transform:translateX(0)}
+  to{transform:translateX(-50%)}
+}
+
+/* ===== CANDIDATE CARDS (horizontal carousel) ===== */
 .mp-card{
+  flex-shrink:0;width:260px;
   background:var(--bg-up);border:1px solid var(--gold-rule);
   padding:1rem;cursor:pointer;transition:all .3s;position:relative;
 }
@@ -146,8 +170,12 @@
 
 /* ===== RESPONSIVE ===== */
 @media(max-width:768px){
-  .map-row{flex-direction:column}
-  .map-panel{width:100%;border-left:none;border-top:1px solid var(--gold-rule);max-height:none}
+  .map-panel{padding:1rem}
+  .mp-carousel-header{flex-direction:column;gap:.25rem}
+  .mp-scroll-area{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .mp-track.revolving{animation:none}
+  .mp-track{width:max-content}
+  .mp-card{width:220px}
   .map-main{min-height:350px}
   .hdr-right a:not(.hdr-back){display:none}
 }

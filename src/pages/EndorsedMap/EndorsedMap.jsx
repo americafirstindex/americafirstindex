@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { loadGeo } from '../../data/loadGeo';
 import { ENDORSED, CARDS } from '../../data/endorsements';
 import logoSrc from '../../assets/logo.jpg';
+import CandidateCarousel from './CandidateCarousel';
 import './EndorsedMap.css';
 
 function getDistrictKey(feat) {
@@ -451,39 +452,21 @@ export default function EndorsedMap() {
         </section>
 
         <div className="map-wrap">
-          <div className="map-row">
-            <div className="map-main">
-              {geo ? (
-                <canvas id="mapCanvas" ref={canvasRef} />
-              ) : (
-                <div className="map-loading">Loading map&hellip;</div>
-              )}
-              <div className="map-controls">
-                <button id="zoomIn">+</button>
-                <button id="zoomOut">&minus;</button>
-                <button id="zoomReset">&#8634;</button>
-              </div>
-            </div>
-            <div className="map-panel">
-              <div>
-                <h3>Endorsed Races</h3>
-                <p className="mp-sub">Six candidates fighting for America First values in Congress.</p>
-              </div>
-              {CARDS.map((card) => (
-                <div
-                  key={card.id}
-                  id={card.id}
-                  className={`mp-card${activeCard === card.id ? ' active' : ''}`}
-                  onClick={() => handleCardClick(card)}
-                >
-                  <h4>{card.name}</h4>
-                  <p className="mp-dist">{card.state}-{card.dist} &middot; {card.region}</p>
-                  <p className="mp-desc">{card.desc}</p>
-                  <div className={`mp-badge ${card.status === 'won' ? 'won' : 'act'}`}>
-                    {card.status === 'won' ? '✓ Won Primary' : '● Active Race'}
-                  </div>
-                </div>
-              ))}
+          <CandidateCarousel
+            cards={CARDS}
+            activeCard={activeCard}
+            onCardClick={handleCardClick}
+          />
+          <div className="map-main">
+            {geo ? (
+              <canvas id="mapCanvas" ref={canvasRef} />
+            ) : (
+              <div className="map-loading">Loading map&hellip;</div>
+            )}
+            <div className="map-controls">
+              <button id="zoomIn">+</button>
+              <button id="zoomOut">&minus;</button>
+              <button id="zoomReset">&#8634;</button>
             </div>
           </div>
 
