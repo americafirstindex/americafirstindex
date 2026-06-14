@@ -3,6 +3,7 @@ import { loadGeo } from '../../data/loadGeo';
 import { ENDORSED, CARDS } from '../../data/endorsements';
 import logoSrc from '../../assets/logo.jpg';
 import CandidateCarousel from './CandidateCarousel';
+import CandidateView from './CandidateView';
 import './EndorsedMap.css';
 
 function getDistrictKey(feat) {
@@ -490,6 +491,13 @@ export default function EndorsedMap() {
           <p>&copy; 2026 America First Index &middot; <a href="/">americafirstindex.us</a></p>
         </footer>
       </div>
+
+      {activeCard && (
+        <CandidateView
+          card={CARDS.find((c) => c.id === activeCard) ?? null}
+          onClose={() => setActiveCard(null)}
+        />
+      )}
     </div>
   );
 }

@@ -163,6 +163,77 @@
 }
 .legend-dot{width:12px;height:12px;border-radius:2px}
 
+/* ===== CANDIDATE VIEW OVERLAY ===== */
+.cv-backdrop{
+  position:fixed;inset:0;z-index:1000;
+  background:rgba(15,13,8,.72);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+  padding:1.5rem;
+  animation:cv-fade-in .2s ease;
+}
+@keyframes cv-fade-in{
+  from{opacity:0}to{opacity:1}
+}
+
+.cv-panel{
+  position:relative;
+  width:100%;max-width:480px;
+  background:var(--bg-card);
+  border:1px solid var(--gold);
+  padding:2.25rem 2rem 2rem;
+  overflow:hidden;
+  box-shadow:0 0 60px rgba(212,173,82,.1),0 20px 60px rgba(0,0,0,.6);
+  animation:cv-slide-up .28s cubic-bezier(.16,1,.3,1);
+}
+@keyframes cv-slide-up{
+  from{opacity:0;transform:translateY(22px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+.cv-accent{
+  position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--gold);
+}
+
+.cv-close{
+  position:absolute;top:.75rem;right:.75rem;
+  background:transparent;border:1px solid var(--gold-rule);
+  color:var(--text-soft);
+  width:28px;height:28px;
+  font-size:1.2rem;line-height:1;
+  cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Source Serif 4',serif;
+}
+.cv-close:hover{
+  border-color:var(--gold);color:var(--gold);
+  background:rgba(212,173,82,.06);
+}
+
+.cv-body{padding-left:.75rem}
+
+.cv-dist{
+  font-weight:700;font-size:.55rem;letter-spacing:2px;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:.35rem;
+}
+
+.cv-name{
+  font-family:'Playfair Display',serif;font-weight:900;
+  font-size:1.75rem;color:var(--gold-white);
+  line-height:1.1;margin-bottom:.65rem;
+}
+
+.cv-divider{
+  height:1px;background:var(--gold-rule);
+  margin:1.1rem 0;
+}
+
+.cv-bio{
+  font-size:.9rem;color:var(--text-soft);line-height:1.7;
+}
+
 /* ===== FOOTER ===== */
 .pg-ft{padding:2rem 0;text-align:center;border-top:1px solid var(--gold-rule);margin-top:3rem}
 .pg-ft p{font-size:.5rem;color:var(--text-ghost);letter-spacing:2px;text-transform:uppercase}
