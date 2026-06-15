@@ -163,6 +163,47 @@
 }
 .legend-dot{width:12px;height:12px;border-radius:2px}
 
+/* ===== CAROUSEL CARD LAYOUT WITH PHOTO ===== */
+.mp-card-inner{
+  display:flex;gap:.75rem;align-items:flex-start;
+}
+.mp-photo{
+  flex-shrink:0;
+  width:56px;height:56px;
+  border-radius:4px;
+  object-fit:cover;
+  border:1px solid var(--gold-rule);
+  background:var(--bg-up);
+}
+.mp-card-text{flex:1;min-width:0}
+.mp-party-badge{
+  font-size:.45rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+  padding:.15rem .35rem;border-radius:2px;
+}
+.mp-party-badge.pb-rep{color:#e84040;background:rgba(232,64,64,.08);border:1px solid rgba(232,64,64,.2)}
+.mp-party-badge.pb-dem{color:#4070e8;background:rgba(64,112,232,.08);border:1px solid rgba(64,112,232,.2)}
+.mp-party-badge.pb-ind{color:var(--text-dim);background:rgba(212,173,82,.06);border:1px solid var(--gold-rule)}
+
+/* ===== CAROUSEL SKELETON ===== */
+.mp-card-skeleton{pointer-events:none;cursor:default}
+.mp-sk-photo{
+  width:56px;height:56px;border-radius:4px;
+  background:var(--gold-rule);
+  animation:sk-pulse 1.4s ease-in-out infinite;
+}
+.mp-sk-line{
+  height:.55rem;border-radius:3px;
+  background:var(--gold-rule);
+  animation:sk-pulse 1.4s ease-in-out infinite;
+  margin-bottom:.45rem;
+}
+.mp-sk-name{width:70%;margin-top:.1rem}
+.mp-sk-dist{width:50%;animation-delay:.1s}
+.mp-sk-desc{width:85%;animation-delay:.2s}
+@keyframes sk-pulse{
+  0%,100%{opacity:.35}50%{opacity:.7}
+}
+
 /* ===== CANDIDATE VIEW OVERLAY ===== */
 .cv-backdrop{
   position:fixed;inset:0;z-index:1000;
@@ -233,6 +274,82 @@
 .cv-bio{
   font-size:.9rem;color:var(--text-soft);line-height:1.7;
 }
+
+/* ===== CANDIDATE VIEW: LOADING STATE ===== */
+.cv-loading{
+  display:flex;align-items:center;gap:.75rem;padding:2rem;
+  color:var(--text-soft);font-size:.85rem;
+}
+
+/* ===== CANDIDATE VIEW: HEADER ROW WITH PHOTO ===== */
+.cv-header-row{
+  display:flex;gap:1.25rem;align-items:flex-start;margin-bottom:.1rem;
+}
+.cv-photo{
+  flex-shrink:0;
+  width:80px;height:80px;
+  border-radius:4px;
+  object-fit:cover;
+  border:1px solid var(--gold-rule);
+  background:var(--bg-up);
+}
+.cv-header-meta{flex:1;min-width:0}
+
+/* ===== CANDIDATE VIEW: LEGISLATION ===== */
+.cv-leg-section{margin-top:.25rem}
+.cv-leg-title{
+  font-weight:700;font-size:.55rem;letter-spacing:3px;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:.75rem;
+}
+.cv-leg-loading{
+  display:flex;align-items:center;gap:.5rem;
+  color:var(--text-soft);font-size:.8rem;padding:.5rem 0;
+}
+.cv-leg-empty{
+  font-size:.8rem;color:var(--text-ghost);font-style:italic;
+}
+.cv-leg-list{
+  list-style:none;margin:0;padding:0;
+  max-height:220px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:.6rem;
+  padding-right:.25rem;
+}
+.cv-leg-list::-webkit-scrollbar{width:4px}
+.cv-leg-list::-webkit-scrollbar-track{background:var(--bg-up)}
+.cv-leg-list::-webkit-scrollbar-thumb{background:var(--gold-rule);border-radius:2px}
+.cv-leg-item{
+  padding:.6rem .75rem;
+  background:var(--bg-up);
+  border:1px solid var(--gold-rule);
+  border-radius:3px;
+}
+.cv-leg-meta{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:.25rem;gap:.5rem;
+}
+.cv-leg-num{
+  font-weight:800;font-size:.5rem;letter-spacing:2px;text-transform:uppercase;
+  color:var(--gold);
+}
+.cv-leg-date{
+  font-size:.5rem;color:var(--text-ghost);white-space:nowrap;
+}
+.cv-leg-link{
+  font-size:.78rem;color:var(--text-soft);line-height:1.45;
+  text-decoration:none;display:block;
+}
+a.cv-leg-link:hover{color:var(--gold);text-decoration:underline}
+
+/* ===== SPINNER ===== */
+.cv-spinner{
+  display:inline-block;
+  width:14px;height:14px;flex-shrink:0;
+  border:2px solid var(--gold-rule);
+  border-top-color:var(--gold);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ===== FOOTER ===== */
 .pg-ft{padding:2rem 0;text-align:center;border-top:1px solid var(--gold-rule);margin-top:3rem}

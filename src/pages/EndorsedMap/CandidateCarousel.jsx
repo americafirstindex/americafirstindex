@@ -1,25 +1,45 @@
 import { useEffect, useRef, useState } from 'react';
 
+function PartyBadge({ party }) {
+  if (!party) return null;
+  const isRep = party.toLowerCase().startsWith('rep');
+  const isDem = party.toLowerCase().startsWith('dem');
+  const cls   = isRep ? 'pb-rep' : isDem ? 'pb-dem' : 'pb-ind';
+  return <span className={`mp-party-badge ${cls}`}>{party}</span>;
+}
+
+function SkeletonCard() {
+  return (
+    <div className="mp-card mp-card-skeleton" aria-hidden="true">
+      <div className="mp-sk-photo" />
+      <div className="mp-sk-line mp-sk-name" />
+      <div className="mp-sk-line mp-sk-dist" />
+      <div className="mp-sk-line mp-sk-desc" />
+    </div>
+  );
+}
+
 export default function CandidateCarousel({ cards, activeCard, onCardClick }) {
   const containerRef = useRef(null);
   const trackRef     = useRef(null);
   const [revolving, setRevolving] = useState(false);
   const [duration,  setDuration]  = useState(20);
 
+  const loading = cards.length === 0;
+
   useEffect(() => {
+    if (loading) return;
     const container = containerRef.current;
     const track     = trackRef.current;
     if (!container || !track) return;
 
     function measure() {
-      // Temporarily collapse animation so we measure natural (single-set) width
       track.style.animation = 'none';
       track.style.transform = 'none';
 
-      // Use first half of track children if already doubled
       const singleSetWidth = cards.reduce((acc, _, i) => {
         const el = track.children[i];
-        return acc + (el ? el.getBoundingClientRect().width + 16 : 0); // 16 = 1rem gap
+        return acc + (el ? el.getBoundingClientRect().width + 16 : 0);
       }, 0);
 
       const containerWidth = container.getBoundingClientRect().width;
@@ -30,7 +50,6 @@ export default function CandidateCarousel({ cards, activeCard, onCardClick }) {
 
       setRevolving(shouldRevolve);
       if (shouldRevolve) {
-        // duration in seconds: full single-set width / 60 px-per-second
         setDuration(Math.max(10, singleSetWidth / 60));
       }
     }
@@ -40,7 +59,7 @@ export default function CandidateCarousel({ cards, activeCard, onCardClick }) {
     measure();
 
     return () => ro.disconnect();
-  }, [cards]);
+  }, [cards, loading]);
 
   const displayCards = revolving ? [...cards, ...cards] : cards;
 
@@ -48,31 +67,57 @@ export default function CandidateCarousel({ cards, activeCard, onCardClick }) {
     <div className="map-panel">
       <div className="mp-carousel-header">
         <h3>Endorsed Races</h3>
-        <p className="mp-sub">Six candidates fighting for America First values in Congress.</p>
+        <p className="mp-sub">
+          {loading
+            ? 'Loading endorsed candidates\u2026'
+            : `${cards.length} candidate${cards.length !== 1 ? 's' : ''} fighting for America First values in Congress.`}
+        </p>
       </div>
 
       <div className="mp-scroll-area" ref={containerRef}>
-        <div
-          ref={trackRef}
-          className={`mp-track${revolving ? ' revolving' : ''}`}
-          style={revolving ? { animationDuration: `${duration}s` } : undefined}
-        >
-          {displayCards.map((card, idx) => (
-            <div
-              key={`${card.id}-${idx}`}
-              id={idx < cards.length ? card.id : undefined}
-              className={`mp-card${activeCard === card.id ? ' active' : ''}`}
-              onClick={() => onCardClick(card)}
-            >
-              <h4>{card.name}</h4>
-              <p className="mp-dist">{card.state}-{card.dist} &middot; {card.region}</p>
-              <p className="mp-desc">{card.desc}</p>
-              <div className={`mp-badge ${card.status === 'won' ? 'won' : 'act'}`}>
-                {card.status === 'won' ? '✓ Won Primary' : '● Active Race'}
+        {loading ? (
+          <div className="mp-track">
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : (
+          <div
+            ref={trackRef}
+            className={`mp-track${revolving ? ' revolving' : ''}`}
+            style={revolving ? { animationDuration: `${duration}s` } : undefined}
+          >
+            {displayCards.map((card, idx) => (
+              <div
+                key={`${card.bioguideId}-${idx}`}
+                id={idx < cards.length ? card.distKey : undefined}
+                className={`mp-card${activeCard === card.distKey ? ' active' : ''}`}
+                onClick={() => onCardClick(card)}
+              >
+                <div className="mp-card-inner">
+                  {card.imageUrl && (
+                    <img
+                      className="mp-photo"
+                      src={card.imageUrl}
+                      alt={card.name}
+                      loading="lazy"
+                    />
+                  )}
+                  <div className="mp-card-text">
+                    <h4>{card.name}</h4>
+                    <p className="mp-dist">
+                      {card.state}-{card.district}
+                      {card.party && <> &middot; <PartyBadge party={card.party} /></>}
+                    </p>
+                    {card.status && (
+                      <div className={`mp-badge ${card.status === 'won' ? 'won' : 'act'}`}>
+                        {card.status === 'won' ? '✓ Won Primary' : '● Active Race'}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

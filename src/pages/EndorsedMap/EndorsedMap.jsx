@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadGeo } from '../../data/loadGeo';
-import { ENDORSED, CARDS } from '../../data/endorsements';
+import { ENDORSED } from '../../data/endorsements';
+import {
+  fetchEndorsedMembers,
+  fetchMemberByDistrict,
+  fetchSponsoredLegislation,
+} from '../../data/congress';
 import logoSrc from '../../assets/logo.jpg';
 import CandidateCarousel from './CandidateCarousel';
 import CandidateView from './CandidateView';
@@ -67,19 +72,19 @@ function buildFeaturePaths(features, bounds) {
   const { minLon, maxLat, geoW, geoH } = bounds;
 
   return features.map((feat) => {
-    const key = getDistrictKey(feat);
+    const key        = getDistrictKey(feat);
     const isEndorsed = key in ENDORSED;
     const polys = feat.geometry.type === 'Polygon'
       ? [feat.geometry.coordinates]
       : feat.geometry.coordinates;
 
     const path = new Path2D();
-    let hitRing = null; // normalized outer ring for ray-cast hit testing
+    let hitRing = null;
     let bNx0 = 1, bNy0 = 1, bNx1 = 0, bNy1 = 0;
 
     for (let pi = 0; pi < polys.length; pi++) {
       for (let ri = 0; ri < polys[pi].length; ri++) {
-        const ring = polys[pi][ri];
+        const ring     = polys[pi][ri];
         const normRing = new Array(ring.length);
         for (let i = 0; i < ring.length; i++) {
           const nx = (ring[i][0] - minLon) / geoW;
@@ -99,8 +104,8 @@ function buildFeaturePaths(features, bounds) {
 
     return {
       key, path, hitRing, isEndorsed,
-      endorsed: isEndorsed ? ENDORSED[key] : null,
-      lonLatBbox: getBBox(feat),   // kept in lon/lat for zoomToFeat math
+      endorsed:    isEndorsed ? ENDORSED[key] : null,
+      lonLatBbox:  getBBox(feat),
       bNx0, bNy0, bNx1, bNy1,
       bCnx: (bNx0 + bNx1) / 2,
       bCny: (bNy0 + bNy1) / 2,
@@ -111,16 +116,22 @@ function buildFeaturePaths(features, bounds) {
 
 export default function EndorsedMap() {
   const canvasRef = useRef(null);
-  const [activeCard, setActiveCard] = useState(null);
-  const [geo, setGeo] = useState(null);
+  const [activeCard,    setActiveCard]    = useState(null);   // member object
+  const [legislation,   setLegislation]   = useState([]);
+  const [loadingCard,   setLoadingCard]   = useState(false);
+  const [loadingLeg,    setLoadingLeg]    = useState(false);
+  const [carouselCards, setCarouselCards] = useState([]);
+  const [geo,           setGeo]           = useState(null);
 
-  const camRef = useRef({ x: 0, y: 0, zoom: 1 });
-  const targetCamRef = useRef({ x: 0, y: 0, zoom: 1 });
+  const camRef         = useRef({ x: 0, y: 0, zoom: 1 });
+  const targetCamRef   = useRef({ x: 0, y: 0, zoom: 1 });
   const selectedKeyRef = useRef(null);
-  const zoomFnRef = useRef(null);
+  const zoomFnRef      = useRef(null);
 
+  // Load geo + endorsed carousel members on mount
   useEffect(() => {
     loadGeo().then(setGeo);
+    fetchEndorsedMembers().then(setCarouselCards);
   }, []);
 
   useEffect(() => {
@@ -134,17 +145,16 @@ export default function EndorsedMap() {
     const bounds = computeGeoBounds(geo.features);
     const { geoW, geoH, geoCx, geoCy } = bounds;
 
-    // Build all Path2D objects once — never rebuilt unless geo changes
     const prebuilt = buildFeaturePaths(geo.features, bounds);
 
     let hoveredKey = null;
-    let drawTime = 0;
+    let drawTime   = 0;
     let needsRedraw = true;
     let rafLoop = null;
     let rafAnim = null;
     let pulseTimer = null;
 
-    const cam = camRef.current;
+    const cam       = camRef.current;
     const targetCam = targetCamRef.current;
 
     const hasActiveEndorsed = Object.values(ENDORSED).some((e) => e.status === 'active');
@@ -153,30 +163,25 @@ export default function EndorsedMap() {
 
     function resize() {
       const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
+      canvas.width  = rect.width  * dpr;
       canvas.height = rect.height * dpr;
-      canvas.style.width = rect.width + 'px';
+      canvas.style.width  = rect.width  + 'px';
       canvas.style.height = rect.height + 'px';
       markDirty();
     }
 
-    /**
-     * Returns the affine transform parameters that map normalized [0,1] coords
-     * to CSS pixel space given the current cam state.
-     */
     function getTransform() {
       const w = canvas.width / dpr;
       const h = canvas.height / dpr;
-      const scale = Math.min(w / geoW, h / geoH) * 0.85 * cam.zoom;
-      const scaleX = geoW * scale;   // CSS pixels per normalized unit (X)
-      const scaleY = geoH * scale;   // CSS pixels per normalized unit (Y)
-      const pixelScale = Math.min(scaleX, scaleY); // for line-width conversion
-      const transX = w / 2 + cam.x - 0.5 * geoW * scale;
-      const transY = h / 2 + cam.y - 0.5 * geoH * scale;
+      const scale      = Math.min(w / geoW, h / geoH) * 0.85 * cam.zoom;
+      const scaleX     = geoW * scale;
+      const scaleY     = geoH * scale;
+      const pixelScale = Math.min(scaleX, scaleY);
+      const transX     = w / 2 + cam.x - 0.5 * geoW * scale;
+      const transY     = h / 2 + cam.y - 0.5 * geoH * scale;
       return { w, h, scale, scaleX, scaleY, pixelScale, transX, transY };
     }
 
-    // Convert normalized coords to CSS pixels (for labels, zoom calculations)
     function normToCSS(nx, ny, t) {
       return [nx * t.scaleX + t.transX, ny * t.scaleY + t.transY];
     }
@@ -185,14 +190,9 @@ export default function EndorsedMap() {
       const t = getTransform();
       drawTime += 0.016;
 
-      // Clear at identity (DPR-scaled)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, t.w, t.h);
 
-      // Apply geo transform: normalized [0,1] → CSS pixels, baked with DPR
-      // All ctx.fill(path) / ctx.stroke(path) calls run in this transformed space.
-      // lineWidth is in normalized units; convert: cssW / pixelScale
-      // shadowBlur is in device pixels and unaffected by transform — kept as-is.
       ctx.setTransform(t.scaleX * dpr, 0, 0, t.scaleY * dpr, t.transX * dpr, t.transY * dpr);
 
       for (const feat of prebuilt) {
@@ -203,8 +203,8 @@ export default function EndorsedMap() {
         // --- Fill ---
         if (isEndorsed) {
           if (endorsed.status === 'active') {
-            const pulse = 0.5 + 0.5 * Math.sin(drawTime * 1.5);
-            const baseA = isSelected ? 0.2 : isHovered ? 0.15 : 0.05;
+            const pulse  = 0.5 + 0.5 * Math.sin(drawTime * 1.5);
+            const baseA  = isSelected ? 0.2 : isHovered ? 0.15 : 0.05;
             const pulseA = isSelected ? 0.2 : isHovered ? 0.15 : 0.1;
             ctx.fillStyle = `rgba(232,80,62,${(baseA + pulse * pulseA).toFixed(3)})`;
           } else {
@@ -230,8 +230,8 @@ export default function EndorsedMap() {
             ctx.shadowBlur  = 0;
           }
         } else {
-          ctx.strokeStyle = 'rgba(212,173,82,0.12)';
-          ctx.lineWidth   = 0.5 / t.pixelScale;
+          ctx.strokeStyle = isSelected ? 'rgba(212,173,82,0.4)' : 'rgba(212,173,82,0.12)';
+          ctx.lineWidth   = (isSelected ? 1.5 : 0.5) / t.pixelScale;
           ctx.shadowColor = 'transparent';
           ctx.shadowBlur  = 0;
         }
@@ -281,11 +281,11 @@ export default function EndorsedMap() {
     }
 
     function zoomToFeat(feat) {
-      const bb = feat.lonLatBbox;
-      const w  = canvas.width / dpr;
-      const h  = canvas.height / dpr;
+      const bb  = feat.lonLatBbox;
+      const w   = canvas.width  / dpr;
+      const h   = canvas.height / dpr;
       const baseScale = Math.min(w / geoW, h / geoH) * 0.85;
-      const tz = Math.min(
+      const tz  = Math.min(
         (w * 0.6) / ((bb.maxLon - bb.minLon) * baseScale),
         (h * 0.6) / ((bb.maxLat - bb.minLat) * baseScale),
         14
@@ -313,10 +313,10 @@ export default function EndorsedMap() {
       cam.x = 0;       cam.y = 0;       cam.zoom = 1;
       selectedKeyRef.current = null;
       setActiveCard(null);
+      setLegislation([]);
       markDirty();
     }
 
-    // Hit test in normalized coordinate space — no transform math per frame
     function screenToNorm(sx, sy) {
       const t = getTransform();
       return [(sx - t.transX) / t.scaleX, (sy - t.transY) / t.scaleY];
@@ -324,10 +324,8 @@ export default function EndorsedMap() {
 
     function hitTest(mx, my) {
       const [nx, ny] = screenToNorm(mx, my);
-      // Iterate in reverse so top-rendered (last drawn) features get priority
       for (let fi = prebuilt.length - 1; fi >= 0; fi--) {
         const feat = prebuilt[fi];
-        // Quick bbox rejection in normalized space
         if (nx < feat.bNx0 || nx > feat.bNx1 || ny < feat.bNy0 || ny > feat.bNy1) continue;
         if (feat.hitRing && pointInPolyNorm(nx, ny, feat.hitRing)) return feat;
       }
@@ -340,7 +338,7 @@ export default function EndorsedMap() {
       const key  = feat ? feat.key : null;
       if (key !== hoveredKey) {
         hoveredKey = key;
-        canvas.style.cursor = feat && feat.isEndorsed ? 'pointer' : 'default';
+        canvas.style.cursor = feat ? 'pointer' : 'default';
         markDirty();
       }
     }
@@ -348,11 +346,33 @@ export default function EndorsedMap() {
     function onClick(e) {
       const r    = canvas.getBoundingClientRect();
       const feat = hitTest(e.clientX - r.left, e.clientY - r.top);
-      if (!feat || !feat.isEndorsed) return;
+      if (!feat) return;
+
+      const [stateAbbr, distNum] = feat.key.split('-');
       selectedKeyRef.current = feat.key;
       zoomToFeat(feat);
-      setActiveCard(feat.endorsed.cardId);
       markDirty();
+
+      setLoadingCard(true);
+      setActiveCard(null);
+      setLegislation([]);
+      setLoadingLeg(false);
+
+      fetchMemberByDistrict(stateAbbr, distNum)
+        .then((member) => {
+          setActiveCard(member);
+          setLoadingCard(false);
+          if (member?.bioguideId) {
+            setLoadingLeg(true);
+            fetchSponsoredLegislation(member.bioguideId)
+              .then((bills) => {
+                setLegislation(bills);
+                setLoadingLeg(false);
+              })
+              .catch(() => setLoadingLeg(false));
+          }
+        })
+        .catch(() => setLoadingCard(false));
     }
 
     function onWheel(e) {
@@ -394,8 +414,6 @@ export default function EndorsedMap() {
     zoomOutBtn?.addEventListener('click', onZoomOut);
     zoomRstBtn?.addEventListener('click', resetView);
 
-    // Drive the pulse animation for active endorsed districts (~15 fps is plenty
-    // for a smooth sinusoidal pulse; full 60fps only runs during user interaction)
     if (hasActiveEndorsed) {
       pulseTimer = setInterval(markDirty, 67);
     }
@@ -424,9 +442,19 @@ export default function EndorsedMap() {
   }, [geo]);
 
   function handleCardClick(card) {
-    setActiveCard(card.id);
+    setActiveCard(card);
     selectedKeyRef.current = card.distKey;
     zoomFnRef.current?.(card.distKey);
+    if (card.bioguideId) {
+      setLoadingLeg(true);
+      setLegislation([]);
+      fetchSponsoredLegislation(card.bioguideId)
+        .then((bills) => {
+          setLegislation(bills);
+          setLoadingLeg(false);
+        })
+        .catch(() => setLoadingLeg(false));
+    }
   }
 
   return (
@@ -447,15 +475,15 @@ export default function EndorsedMap() {
           <h1>Where We&rsquo;re <span style={{ color: '#F0D060' }}>Fighting</span></h1>
           <p>
             Our endorsed candidates are running in congressional districts across America. We&rsquo;re on the
-            ground organizing, producing content, and pushing them across the finish line. Click a candidate to
-            zoom to their district on the map.
+            ground organizing, producing content, and pushing them across the finish line. Click any district
+            to see the current representative.
           </p>
         </section>
 
         <div className="map-wrap">
           <CandidateCarousel
-            cards={CARDS}
-            activeCard={activeCard}
+            cards={carouselCards}
+            activeCard={activeCard?.distKey ?? null}
             onCardClick={handleCardClick}
           />
           <div className="map-main">
@@ -492,10 +520,17 @@ export default function EndorsedMap() {
         </footer>
       </div>
 
-      {activeCard && (
+      {(loadingCard || activeCard) && (
         <CandidateView
-          card={CARDS.find((c) => c.id === activeCard) ?? null}
-          onClose={() => setActiveCard(null)}
+          card={activeCard}
+          loading={loadingCard}
+          legislation={legislation}
+          loadingLegislation={loadingLeg}
+          onClose={() => {
+            setActiveCard(null);
+            setLegislation([]);
+            selectedKeyRef.current = null;
+          }}
         />
       )}
     </div>
