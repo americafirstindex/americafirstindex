@@ -25,7 +25,7 @@ const HIGH_QUALITY = false; // faster Radial Distance pre-pass is fine here
 const STATE_ABBR = {
   alabama: 'AL', arizona: 'AZ', arkansas: 'AR', california: 'CA',
   colorado: 'CO', connecticut: 'CT', florida: 'FL', georgia: 'GA',
-  idaho: 'ID', indiana: 'IN', iowa: 'IA', kansas: 'KS',
+  idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA', kansas: 'KS',
   kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD',
   massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS',
   missouri: 'MO', montana: 'MT', nebraska: 'NE', nevada: 'NV',
