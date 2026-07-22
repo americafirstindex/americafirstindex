@@ -493,7 +493,7 @@ export default function EndorsedMap() {
               Unrated
             </div>
             <div className="legend-item">
-              <div className="legend-dot" style={{ background: 'rgba(92,200,64,.6)' }}></div>
+              <div className="legend-dot" style={{ background: 'rgba(232,80,62,.6)' }}></div>
               0–50%
             </div>
             <div className="legend-item">
@@ -501,7 +501,7 @@ export default function EndorsedMap() {
               50–80%
             </div>
             <div className="legend-item">
-              <div className="legend-dot" style={{ background: 'rgba(232,80,62,.6)' }}></div>
+              <div className="legend-dot" style={{ background: 'rgba(92,200,64,.6)' }}></div>
               80–100%
             </div>
           </div>

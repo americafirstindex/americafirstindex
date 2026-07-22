@@ -24,6 +24,9 @@ jobs:
           node-version: '24.x'
 
       - name: npm install, build, and test
+        env:
+          # Vite inlines VITE_* vars at build time — App Service env vars alone are not enough
+          VITE_CONGRESS_API_KEY: ${{ secrets.VITE_CONGRESS_API_KEY }}
         run: |
           npm install
           npm run build --if-present
