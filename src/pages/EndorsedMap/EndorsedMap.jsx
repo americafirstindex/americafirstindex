@@ -1,15 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadGeo } from '../../data/loadGeo';
-import { ENDORSED } from '../../data/endorsements';
 import {
   fetchEndorsedMembers,
   fetchMemberByDistrict,
   fetchSponsoredLegislation,
+  loadHouseRatings,
+  finalColorBucket,
 } from '../../data/congress';
 import logoSrc from '../../assets/logo.jpg';
 import CandidateCarousel from './CandidateCarousel';
 import CandidateView from './CandidateView';
 import './EndorsedMap.css';
+
+const RATING_COLORS = {
+  green:  { r: 92,  g: 200, b: 64  },
+  orange: { r: 232, g: 140, b: 40  },
+  red:    { r: 232, g: 80,  b: 62  },
+};
+
+function rgba(c, a) {
+  return `rgba(${c.r},${c.g},${c.b},${a})`;
+}
 
 function getDistrictKey(feat) {
   return feat.properties.state + '-' + feat.properties.NAME;
@@ -68,12 +79,13 @@ function computeGeoBounds(features) {
  * At draw time a single ctx.setTransform call maps this space to the canvas,
  * so no per-vertex projection happens in the animation loop.
  */
-function buildFeaturePaths(features, bounds) {
+function buildFeaturePaths(features, bounds, ratings) {
   const { minLon, maxLat, geoW, geoH } = bounds;
 
   return features.map((feat) => {
-    const key        = getDistrictKey(feat);
-    const isEndorsed = key in ENDORSED;
+    const key    = getDistrictKey(feat);
+    const rating = ratings?.[key] ?? null;
+    const bucket = rating?.final != null ? finalColorBucket(rating.final) : null;
     const polys = feat.geometry.type === 'Polygon'
       ? [feat.geometry.coordinates]
       : feat.geometry.coordinates;
@@ -103,8 +115,9 @@ function buildFeaturePaths(features, bounds) {
     }
 
     return {
-      key, path, hitRing, isEndorsed,
-      endorsed:    isEndorsed ? ENDORSED[key] : null,
+      key, path, hitRing,
+      rating, bucket,
+      isRated:     !!bucket,
       lonLatBbox:  getBBox(feat),
       bNx0, bNy0, bNx1, bNy1,
       bCnx: (bNx0 + bNx1) / 2,
@@ -122,20 +135,24 @@ export default function EndorsedMap() {
   const [loadingLeg,    setLoadingLeg]    = useState(false);
   const [carouselCards, setCarouselCards] = useState([]);
   const [geo,           setGeo]           = useState(null);
+  const [ratings,       setRatings]       = useState(null);
 
   const camRef         = useRef({ x: 0, y: 0, zoom: 1 });
   const targetCamRef   = useRef({ x: 0, y: 0, zoom: 1 });
   const selectedKeyRef = useRef(null);
   const zoomFnRef      = useRef(null);
 
-  // Load geo + endorsed carousel members on mount
+  // Load geo + house ratings + endorsed carousel members on mount
   useEffect(() => {
-    loadGeo().then(setGeo);
+    Promise.all([loadGeo(), loadHouseRatings()]).then(([g, r]) => {
+      setGeo(g);
+      setRatings(r);
+    });
     fetchEndorsedMembers().then(setCarouselCards);
   }, []);
 
   useEffect(() => {
-    if (!geo) return;
+    if (!geo || !ratings) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -145,19 +162,15 @@ export default function EndorsedMap() {
     const bounds = computeGeoBounds(geo.features);
     const { geoW, geoH, geoCx, geoCy } = bounds;
 
-    const prebuilt = buildFeaturePaths(geo.features, bounds);
+    const prebuilt = buildFeaturePaths(geo.features, bounds, ratings);
 
     let hoveredKey = null;
-    let drawTime   = 0;
     let needsRedraw = true;
     let rafLoop = null;
     let rafAnim = null;
-    let pulseTimer = null;
 
     const cam       = camRef.current;
     const targetCam = targetCamRef.current;
-
-    const hasActiveEndorsed = Object.values(ENDORSED).some((e) => e.status === 'active');
 
     function markDirty() { needsRedraw = true; }
 
@@ -188,7 +201,6 @@ export default function EndorsedMap() {
 
     function draw() {
       const t = getTransform();
-      drawTime += 0.016;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, t.w, t.h);
@@ -196,56 +208,37 @@ export default function EndorsedMap() {
       ctx.setTransform(t.scaleX * dpr, 0, 0, t.scaleY * dpr, t.transX * dpr, t.transY * dpr);
 
       for (const feat of prebuilt) {
-        const { key, path, isEndorsed, endorsed } = feat;
+        const { key, path, isRated, bucket } = feat;
         const isHovered  = key === hoveredKey;
         const isSelected = key === selectedKeyRef.current;
+        const color      = bucket ? RATING_COLORS[bucket] : null;
 
         // --- Fill ---
-        if (isEndorsed) {
-          if (endorsed.status === 'active') {
-            const pulse  = 0.5 + 0.5 * Math.sin(drawTime * 1.5);
-            const baseA  = isSelected ? 0.2 : isHovered ? 0.15 : 0.05;
-            const pulseA = isSelected ? 0.2 : isHovered ? 0.15 : 0.1;
-            ctx.fillStyle = `rgba(232,80,62,${(baseA + pulse * pulseA).toFixed(3)})`;
-          } else {
-            ctx.fillStyle = `rgba(92,200,64,${isSelected ? 0.25 : isHovered ? 0.18 : 0.1})`;
-          }
+        if (isRated && color) {
+          ctx.fillStyle = rgba(color, isSelected ? 0.25 : isHovered ? 0.18 : 0.1);
         } else {
           ctx.fillStyle = isHovered ? 'rgba(212,173,82,0.1)' : 'rgba(212,173,82,0.04)';
         }
         ctx.fill(path, 'evenodd');
 
-        // --- Stroke ---
-        if (isEndorsed) {
-          if (endorsed.status === 'active') {
-            const pulse = 0.5 + 0.5 * Math.sin(drawTime * 1.5);
-            ctx.strokeStyle = `rgba(232,80,62,${isSelected ? (0.6 + pulse * 0.4).toFixed(3) : (0.2 + pulse * 0.35).toFixed(3)})`;
-            ctx.lineWidth   = (isSelected ? 2.5 : 1.5) / t.pixelScale;
-            ctx.shadowColor = `rgba(232,80,62,${isSelected ? (0.1 + pulse * 0.25).toFixed(3) : (0.03 + pulse * 0.15).toFixed(3)})`;
-            ctx.shadowBlur  = isSelected ? 6 + pulse * 10 : 3 + pulse * 7;
-          } else {
-            ctx.strokeStyle = isSelected ? 'rgba(92,200,64,0.7)' : 'rgba(92,200,64,0.35)';
-            ctx.lineWidth   = (isSelected ? 2.5 : 1.5) / t.pixelScale;
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur  = 0;
-          }
+        // --- Stroke (keep hairline width; color carries the rating signal) ---
+        if (isRated && color) {
+          ctx.strokeStyle = rgba(color, isSelected ? 0.65 : isHovered ? 0.4 : 0.22);
         } else {
           ctx.strokeStyle = isSelected ? 'rgba(212,173,82,0.4)' : 'rgba(212,173,82,0.12)';
-          ctx.lineWidth   = (isSelected ? 1.5 : 0.5) / t.pixelScale;
-          ctx.shadowColor = 'transparent';
-          ctx.shadowBlur  = 0;
         }
-        ctx.stroke(path);
+        ctx.lineWidth   = (isSelected ? 1.25 : 0.5) / t.pixelScale;
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur  = 0;
+        ctx.stroke(path);
       }
 
-      // District labels for endorsed districts when sufficiently zoomed in
+      // District labels for rated districts when sufficiently zoomed in
       if (cam.zoom > 1.5) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.textAlign = 'center';
         for (const feat of prebuilt) {
-          if (!feat.isEndorsed) continue;
+          if (!feat.isRated) continue;
           const [cx, cy] = normToCSS(feat.bCnx, feat.bCny, t);
           const [x1]     = normToCSS(feat.bNx0, feat.bCny, t);
           const [x2]     = normToCSS(feat.bNx1, feat.bCny, t);
@@ -414,10 +407,6 @@ export default function EndorsedMap() {
     zoomOutBtn?.addEventListener('click', onZoomOut);
     zoomRstBtn?.addEventListener('click', resetView);
 
-    if (hasActiveEndorsed) {
-      pulseTimer = setInterval(markDirty, 67);
-    }
-
     const ro = new ResizeObserver(resize);
     ro.observe(canvas.parentElement);
 
@@ -427,7 +416,6 @@ export default function EndorsedMap() {
     return () => {
       cancelAnimationFrame(rafLoop);
       cancelAnimationFrame(rafAnim);
-      if (pulseTimer) clearInterval(pulseTimer);
       canvas.removeEventListener('mousemove',  onMouseMove);
       canvas.removeEventListener('click',      onClick);
       canvas.removeEventListener('wheel',      onWheel);
@@ -439,7 +427,7 @@ export default function EndorsedMap() {
       zoomRstBtn?.removeEventListener('click', resetView);
       ro.disconnect();
     };
-  }, [geo]);
+  }, [geo, ratings]);
 
   function handleCardClick(card) {
     setActiveCard(card);
@@ -502,15 +490,19 @@ export default function EndorsedMap() {
           <div className="legend">
             <div className="legend-item">
               <div className="legend-dot" style={{ background: 'rgba(212,173,82,.15)' }}></div>
-              Other Districts
+              Unrated
             </div>
             <div className="legend-item">
               <div className="legend-dot" style={{ background: 'rgba(92,200,64,.6)' }}></div>
-              Won Primary
+              0–50%
             </div>
             <div className="legend-item">
-              <div className="legend-dot" style={{ background: 'var(--red)', opacity: .6 }}></div>
-              Active Race
+              <div className="legend-dot" style={{ background: 'rgba(232,140,40,.7)' }}></div>
+              50–80%
+            </div>
+            <div className="legend-item">
+              <div className="legend-dot" style={{ background: 'rgba(232,80,62,.6)' }}></div>
+              80–100%
             </div>
           </div>
         </div>

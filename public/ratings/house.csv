@@ -1,0 +1,220 @@
+District,Role,Immigration,Economy,Social,Foreign,Aggregate,Adjustment,Final
+TX-26,ANCHOR — 100,100,100,100,100,1.0000,-,1.0000
+AZ-05,Freedom Caucus former chair,95,80,92,80,0.8675,-,0.8675
+TX-21,"FC, very AF",92,82,92,78,0.8660,-,0.8660
+AZ-02,"Freedom Caucus, anti-McCarthy 8",92,82,90,80,0.8630,-,0.8630
+MD-01,FC Chair,92,80,92,75,0.8550,+0.0500,0.9050
+OH-04,"Judiciary Chair, FC founder",90,80,92,78,0.8530,-,0.8530
+AZ-09,"FC, controversial AF",95,80,85,80,0.8500,-,0.8500
+TN-02,"Anti-McCarthy 8, FC",92,80,88,78,0.8480,-,0.8480
+GA-09,FC AF,90,78,90,75,0.8370,-,0.8370
+IL-15,FC AF,90,78,90,75,0.8370,-,0.8370
+MO-07,FC AF,90,78,90,75,0.8370,-,0.8370
+AL-01,Freedom Caucus,90,80,92,60,0.8350,-,0.8350
+PA-10,FC former chair,90,80,90,65,0.8350,-,0.8350
+AL-06,"RSC Chair, Policy",88,78,92,70,0.8320,-,0.8320
+AZ-08,MAGA freshman,90,78,88,75,0.8320,-,0.8320
+CO-04,MAGA AF,92,80,90,55,0.8300,-,0.8300
+FL-13,"MAGA AF, FC",92,80,90,55,0.8300,-,0.8300
+FL-19,"MAGA AF, FL Gov candidate",92,80,90,55,0.8300,-,0.8300
+LA-03,FC AF,88,78,88,75,0.8270,-,0.8270
+OH-08,FC AF,88,78,88,75,0.8270,-,0.8270
+OK-02,FC AF,88,78,88,75,0.8270,-,0.8270
+SC-05,FC AF,88,78,88,75,0.8270,-,0.8270
+TX-03,FC AF,88,78,88,75,0.8270,-,0.8270
+VA-05,FC (defeated Bob Good),88,78,88,75,0.8270,-,0.8270
+VA-06,FC,88,78,88,75,0.8270,-,0.8270
+TN-05,FC AF,90,78,90,60,0.8220,-,0.8220
+TX-27,FC AF,90,78,90,60,0.8220,-,0.8220
+WY-AL,MAGA AF (defeated Cheney),90,78,90,60,0.8220,-,0.8220
+TX-13,MAGA AF,90,78,90,55,0.8170,-,0.8170
+FL-07,"MAGA AF, mil bg",90,78,90,50,0.8120,-,0.8120
+FL-06,MAGA AF,90,78,90,50,0.8120,-,0.8120
+TX-22,MAGA AF,90,78,88,55,0.8120,-,0.8120
+FL-01,"MAGA, replaced Gaetz",88,75,88,70,0.8100,-,0.8100
+FL-03,Conservative AF,88,75,88,70,0.8100,-,0.8100
+FL-17,FC AF,88,75,88,70,0.8100,-,0.8100
+NJ-02,MAGA-aligned (switched),88,75,88,70,0.8100,-,0.8100
+WI-03,MAGA AF,88,75,88,70,0.8100,-,0.8100
+GA-03,Trump-aligned,85,75,88,70,0.8025,-,0.8025
+IN-03,Conservative R returning,85,75,88,70,0.8025,-,0.8025
+TX-15,"Conservative R, Hispanic district",88,75,85,70,0.8025,-,0.8025
+TX-11,RSC Chair-elect,85,75,88,68,0.8005,-,0.8005
+GA-10,Trump-aligned AF,88,75,88,55,0.7950,-,0.7950
+NY-21,"MAGA, ex-Conference Chair",88,75,90,50,0.7950,-,0.7950
+TX-38,"MAGA R, Senate/Gov candidate",88,75,88,55,0.7950,-,0.7950
+MI-02,China Committee Chair,82,72,85,80,0.7855,-,0.7855
+TX-19,Budget Chair,82,75,85,65,0.7825,-,0.7825
+WV-02,Conservative R,82,72,88,65,0.7780,-,0.7780
+MO-08,W&M Chair,82,75,85,55,0.7725,-,0.7725
+MI-09,Conference Chair,82,72,85,65,0.7705,-,0.7705
+NY-24,Conservative R,82,70,88,65,0.7700,-,0.7700
+WI-06,Conservative R,82,70,88,65,0.7700,-,0.7700
+OK-05,RSC Chair,82,72,88,55,0.7680,-,0.7680
+UT-04,Conservative R,82,72,88,50,0.7630,-,0.7630
+AK-AL,Mainstream R,80,70,85,70,0.7625,-,0.7625
+FL-21,Foreign Affairs Chair,88,70,85,50,0.7625,-,0.7625
+KY-01,Oversight Chair,82,70,85,65,0.7625,-,0.7625
+TX-24,Conservative R,82,70,85,65,0.7625,-,0.7625
+WI-07,"Conservative R, Gov candidate",82,70,85,65,0.7625,-,0.7625
+CA-20,Mainstream R,80,70,85,65,0.7575,-,0.7575
+CO-05,Conservative R,80,70,85,65,0.7575,-,0.7575
+CA-01,Mainstream R (won special 6/2/26),80,70,85,65,0.7575,-,0.7575
+FL-04,Mainstream R,80,70,85,65,0.7575,-,0.7575
+FL-08,Mainstream conservative,80,70,85,65,0.7575,-,0.7575
+GA-11,Conservative R,80,70,85,65,0.7575,-,0.7575
+GA-14,Mainstream R (won special 4/7/26),80,70,85,65,0.7575,-,0.7575
+IN-08,Conservative R,80,70,85,65,0.7575,-,0.7575
+IN-09,Conservative R,80,70,85,65,0.7575,-,0.7575
+IA-04,"Conservative R, Gov candidate",80,70,85,65,0.7575,-,0.7575
+KS-01,Conservative R,80,70,85,65,0.7575,-,0.7575
+KS-02,Conservative R,80,70,85,65,0.7575,-,0.7575
+KS-04,Conservative R,80,70,85,65,0.7575,-,0.7575
+MI-05,"Conservative R, Ed Chair",80,70,85,65,0.7575,-,0.7575
+MN-07,Conservative R,80,70,85,65,0.7575,-,0.7575
+MS-04,Conservative R,80,70,85,65,0.7575,-,0.7575
+MO-03,Conservative R,80,70,85,65,0.7575,-,0.7575
+MO-04,Conservative R,80,70,85,65,0.7575,-,0.7575
+MT-02,Conservative R,80,70,85,65,0.7575,-,0.7575
+NY-23,Conservative R,80,70,85,65,0.7575,-,0.7575
+NC-06,Conservative R,80,70,85,65,0.7575,-,0.7575
+NC-08,Conservative R,80,70,85,65,0.7575,-,0.7575
+NC-10,Conservative R,80,70,85,65,0.7575,-,0.7575
+NC-13,Conservative R,80,70,85,65,0.7575,-,0.7575
+NC-14,Conservative R,80,70,85,65,0.7575,-,0.7575
+OH-06,Conservative R,80,70,85,65,0.7575,-,0.7575
+OH-07,Conservative R,80,70,85,65,0.7575,-,0.7575
+OK-01,Conservative R,80,70,85,65,0.7575,-,0.7575
+SC-03,Conservative R,80,70,85,65,0.7575,-,0.7575
+SC-07,Conservative R,80,70,85,65,0.7575,-,0.7575
+TN-01,Conservative R,80,70,85,65,0.7575,-,0.7575
+TN-06,"Mainstream R, Gov candidate",80,70,85,65,0.7575,-,0.7575
+TN-07,Special election winner,80,70,85,65,0.7575,-,0.7575
+TX-01,Conservative R,80,70,85,65,0.7575,-,0.7575
+TX-04,Conservative R,80,70,85,65,0.7575,-,0.7575
+TX-08,"Conservative R, military",80,70,85,65,0.7575,-,0.7575
+TX-12,Conservative R,80,70,85,65,0.7575,-,0.7575
+TX-14,Conservative R,80,70,85,65,0.7575,-,0.7575
+TX-36,Conservative R,80,70,85,65,0.7575,-,0.7575
+UT-02,Conservative R,80,70,85,65,0.7575,-,0.7575
+UT-03,Conservative R (replaced Curtis),80,70,85,65,0.7575,-,0.7575
+WV-01,Conservative R,80,70,85,65,0.7575,-,0.7575
+WI-08,Conservative R,80,70,85,65,0.7575,-,0.7575
+CA-48,Conservative R,80,68,88,65,0.7570,-,0.7570
+NC-05,Senior conservative R,80,70,88,55,0.7550,-,0.7550
+TX-05,Conservative R,82,70,88,50,0.7550,-,0.7550
+IA-02,Conservative R,80,70,85,60,0.7525,-,0.7525
+MN-08,"Conservative R, mining",80,70,82,65,0.7500,-,0.7500
+KY-04,Libertarian,75,75,70,85,0.7475,-,0.7475
+MI-10,Conservative R,80,70,85,50,0.7425,-,0.7425
+MN-06,Majority Whip,78,68,85,60,0.7395,-,0.7395
+PA-14,Chief Deputy Whip,78,68,85,60,0.7395,-,0.7395
+CA-05,Libertarian-conservative,72,72,80,68,0.7360,-,0.7360
+LA-04,Speaker,78,65,88,60,0.7350,-,0.7350
+NJ-04,"Senior R, pro-life leader",78,65,88,55,0.7300,-,0.7300
+FL-28,"Conservative R, Cuba hawk",78,65,82,68,0.7280,-,0.7280
+AZ-01,Ways & Means,75,70,80,60,0.7275,-,0.7275
+FL-02,Mainstream R,78,65,82,60,0.7200,-,0.7200
+FL-15,Mainstream R,78,65,82,60,0.7200,-,0.7200
+GA-01,"Mainstream R, Senate candidate",78,65,82,60,0.7200,-,0.7200
+GA-12,Mainstream R,78,65,82,60,0.7200,-,0.7200
+ID-01,Conservative R,78,65,82,60,0.7200,-,0.7200
+IL-12,Veterans Affairs Chair,78,65,82,60,0.7200,-,0.7200
+IN-02,Conservative R,78,65,82,60,0.7200,-,0.7200
+IN-04,Conservative R,78,65,82,60,0.7200,-,0.7200
+IN-06,Conservative R,78,65,82,60,0.7200,-,0.7200
+KY-06,"Mainstream R, Senate candidate",78,65,82,60,0.7200,-,0.7200
+MI-01,Conservative R,78,65,82,60,0.7200,-,0.7200
+MI-04,Conservative R,78,65,82,60,0.7200,-,0.7200
+MI-07,"Conservative R, flipped Slotkin seat",78,65,82,60,0.7200,-,0.7200
+MN-01,Conservative R,78,65,82,60,0.7200,-,0.7200
+MS-01,Conservative R,78,65,82,60,0.7200,-,0.7200
+MS-03,Conservative R,78,65,82,60,0.7200,-,0.7200
+MT-01,"Conservative R, former Interior",78,65,82,60,0.7200,-,0.7200
+NE-01,Conservative R,78,65,82,60,0.7200,-,0.7200
+NC-03,Conservative R,78,65,82,60,0.7200,-,0.7200
+NC-07,Conservative R,78,65,82,60,0.7200,-,0.7200
+NC-09,NRCC Chair,78,65,82,60,0.7200,-,0.7200
+NC-11,Conservative R,78,65,82,60,0.7200,-,0.7200
+ND-AL,Conservative R,78,65,82,60,0.7200,-,0.7200
+OH-02,Conservative R,78,65,82,60,0.7200,-,0.7200
+OH-15,Mainstream R,78,65,82,60,0.7200,-,0.7200
+PA-09,Conservative R,78,65,82,60,0.7200,-,0.7200
+SC-04,Conservative R,78,65,82,60,0.7200,-,0.7200
+TN-04,Conservative R,78,65,82,60,0.7200,-,0.7200
+TX-06,Conservative R,78,65,82,60,0.7200,-,0.7200
+TX-17,Senior conservative R,78,65,82,60,0.7200,-,0.7200
+TX-25,Small Biz Chair,78,65,82,60,0.7200,-,0.7200
+TX-31,Senior conservative R,78,65,82,60,0.7200,-,0.7200
+VA-09,Conservative R,78,65,82,60,0.7200,-,0.7200
+WA-05,Conservative R,78,65,82,60,0.7200,-,0.7200
+WI-01,Admin Chair,78,65,82,60,0.7200,-,0.7200
+WI-05,Conservative R,78,65,82,60,0.7200,-,0.7200
+FL-05,Mainstream R,78,65,82,55,0.7150,-,0.7150
+GA-06,Conservative R,78,65,80,60,0.7150,-,0.7150
+GA-08,Mainstream R,78,65,80,60,0.7150,-,0.7150
+NE-03,Senior conservative R,78,65,80,60,0.7150,-,0.7150
+OK-03,Senior conservative R,78,65,80,60,0.7150,-,0.7150
+SC-02,Senior conservative R,78,65,82,55,0.7150,-,0.7150
+FL-11,Mainstream R senior,75,65,82,60,0.7125,-,0.7125
+LA-01,Majority Leader,75,65,82,60,0.7125,-,0.7125
+LA-05,Conservative R,75,65,82,60,0.7125,-,0.7125
+IN-05,"Conservative R, Ukrainian-born",78,70,78,40,0.7100,-,0.7100
+CA-03,Indep/R caucus,72,68,78,62,0.7090,-,0.7090
+AR-04,Natural Resources Chair,75,65,80,60,0.7075,-,0.7075
+CA-23,Mainstream R,75,65,80,60,0.7075,-,0.7075
+CO-03,Mainstream R,75,65,80,60,0.7075,-,0.7075
+FL-12,Mainstream R,75,65,80,60,0.7075,-,0.7075
+FL-18,Mainstream R,75,65,80,60,0.7075,-,0.7075
+IL-16,"Mainstream R, Intel",75,65,80,60,0.7075,-,0.7075
+KY-02,E&C Chair,75,65,80,60,0.7075,-,0.7075
+MO-06,T&I Chair,75,65,80,60,0.7075,-,0.7075
+NY-11,"Conservative R, W&M",75,65,80,60,0.7075,-,0.7075
+OH-05,Mainstream R,75,65,80,60,0.7075,-,0.7075
+OH-12,Mainstream R,75,65,80,60,0.7075,-,0.7075
+OR-02,Conservative R,75,65,80,60,0.7075,-,0.7075
+PA-11,Conservative R,75,65,80,60,0.7075,-,0.7075
+PA-13,Conservative R,75,65,80,60,0.7075,-,0.7075
+PA-16,Senior conservative R,75,65,80,60,0.7075,-,0.7075
+TN-03,Mainstream R,75,65,80,60,0.7075,-,0.7075
+TN-08,Mainstream R,75,65,80,60,0.7075,-,0.7075
+MO-02,Mainstream R,75,65,80,55,0.7025,-,0.7025
+OK-04,Approps Chair,75,65,80,55,0.7025,-,0.7025
+PA-15,Ag Chair,75,65,80,55,0.7025,-,0.7025
+SC-01,Idiosyncratic R,75,65,78,60,0.7025,-,0.7025
+UT-01,Conference Vice-Chair,75,65,80,55,0.7025,-,0.7025
+TX-02,"Conservative R, hawk",78,65,80,45,0.7000,-,0.7000
+AR-01,HPSCI Chair,75,62,80,55,0.6905,-,0.6905
+IA-03,"Conservative R, frontline",75,62,78,58,0.6885,-,0.6885
+AL-04,Approps,72,62,82,50,0.6830,-,0.6830
+AL-05,Mainstream R,75,60,80,55,0.6825,-,0.6825
+VA-01,Armed Services senior,75,60,78,50,0.6725,-,0.6725
+AR-03,Approps,72,60,78,55,0.6700,-,0.6700
+SD-AL,"Mainstream R, Gov candidate",72,60,78,55,0.6700,-,0.6700
+FL-26,Approps,70,60,75,65,0.6675,-,0.6675
+TX-10,"HFAC senior, hawk",75,60,80,35,0.6625,-,0.6625
+KY-05,Senior Approps,70,60,78,50,0.6600,-,0.6600
+FL-16,W&M senior,70,60,75,55,0.6575,-,0.6575
+NV-02,Moderate-conservative R,70,60,75,55,0.6575,-,0.6575
+CO-08,Frontline R,70,60,72,55,0.6500,-,0.6500
+AR-02,Financial Services Chair,68,58,75,55,0.6445,-,0.6445
+OH-10,"Senior R, hawk",70,60,78,30,0.6400,-,0.6400
+CA-41,Senior R,65,60,72,55,0.6375,-,0.6375
+AL-03,Armed Services Chair,70,55,80,30,0.6250,-,0.6250
+OH-14,"Moderate R, RGG",65,58,70,50,0.6195,-,0.6195
+ID-02,"Approps senior, moderate",65,55,72,50,0.6125,-,0.6125
+NY-02,Moderate-conservative R,60,58,70,55,0.6120,-,0.6120
+FL-27,Moderate R,60,55,65,55,0.5875,-,0.5875
+IA-01,Frontline moderate R,60,55,65,50,0.5825,-,0.5825
+PA-08,Frontline R,60,55,65,50,0.5825,-,0.5825
+VA-02,Frontline R,55,55,65,50,0.5700,-,0.5700
+CA-40,Frontline moderate,55,55,62,55,0.5675,-,0.5675
+AZ-06,Frontline moderate,55,55,60,50,0.5575,-,0.5575
+NJ-07,Frontline moderate R,55,55,60,50,0.5575,-,0.5575
+NY-01,Frontline R,55,55,60,50,0.5575,-,0.5575
+NY-17,Frontline moderate R,55,55,60,50,0.5575,+0.0500,0.6075
+PA-07,Frontline R,55,55,60,50,0.5575,-,0.5575
+NE-02,"Moderate R frontline, Ukraine hawk",55,50,60,40,0.5275,-,0.5275
+WA-04,Moderate R (impeach vote),50,50,60,45,0.5200,-,0.5200
+CA-22,Frontline moderate,50,50,55,45,0.5075,+0.0500,0.5575
+PA-01,Most moderate R,50,50,55,45,0.5075,+0.0500,0.5575

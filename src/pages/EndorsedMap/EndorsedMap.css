@@ -220,7 +220,7 @@
 
 .cv-panel{
   position:relative;
-  width:100%;max-width:480px;
+  width:100%;max-width:520px;
   background:var(--bg-card);
   border:1px solid var(--gold);
   padding:2.25rem 2rem 2rem;
@@ -285,15 +285,40 @@
 .cv-header-row{
   display:flex;gap:1.25rem;align-items:flex-start;margin-bottom:.1rem;
 }
-.cv-photo{
+.cv-photo-col{
   flex-shrink:0;
+  display:flex;flex-direction:column;align-items:stretch;
+  width:80px;gap:.4rem;
+}
+.cv-photo{
   width:80px;height:80px;
   border-radius:4px;
   object-fit:cover;
   border:1px solid var(--gold-rule);
   background:var(--bg-up);
 }
+.cv-role{
+  font-size:.62rem;line-height:1.35;color:var(--text-soft);
+  margin:0;word-break:break-word;
+}
 .cv-header-meta{flex:1;min-width:0}
+
+.cv-final{
+  position:relative;
+  flex-shrink:0;
+  width:72px;height:72px;
+  display:flex;align-items:center;justify-content:center;
+}
+.cv-final-track{stroke:var(--gold-rule)}
+.cv-final-ring{
+  transition:stroke-dashoffset .4s ease;
+}
+.cv-final-pct{
+  position:absolute;
+  font-family:'Playfair Display',serif;font-weight:900;
+  font-size:.85rem;line-height:1;
+  letter-spacing:-0.02em;
+}
 
 /* ===== CANDIDATE VIEW: LEGISLATION ===== */
 .cv-leg-section{margin-top:.25rem}
