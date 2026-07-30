@@ -195,10 +195,6 @@ export default function EndorsedMap() {
       return { w, h, scale, scaleX, scaleY, pixelScale, transX, transY };
     }
 
-    function normToCSS(nx, ny, t) {
-      return [nx * t.scaleX + t.transX, ny * t.scaleY + t.transY];
-    }
-
     function draw() {
       const t = getTransform();
 
@@ -231,22 +227,6 @@ export default function EndorsedMap() {
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur  = 0;
         ctx.stroke(path);
-      }
-
-      // District labels for rated districts when sufficiently zoomed in
-      if (cam.zoom > 1.5) {
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.textAlign = 'center';
-        for (const feat of prebuilt) {
-          if (!feat.isRated) continue;
-          const [cx, cy] = normToCSS(feat.bCnx, feat.bCny, t);
-          const [x1]     = normToCSS(feat.bNx0, feat.bCny, t);
-          const [x2]     = normToCSS(feat.bNx1, feat.bCny, t);
-          const fontSize = Math.max(8, Math.min(Math.abs(x2 - x1) * 0.18, 16));
-          ctx.font      = `bold ${fontSize}px "Source Serif 4", serif`;
-          ctx.fillStyle = 'rgba(212,173,82,0.8)';
-          ctx.fillText(feat.key, cx, cy);
-        }
       }
     }
 
@@ -325,20 +305,8 @@ export default function EndorsedMap() {
       return null;
     }
 
-    function onMouseMove(e) {
-      const r    = canvas.getBoundingClientRect();
-      const feat = hitTest(e.clientX - r.left, e.clientY - r.top);
-      const key  = feat ? feat.key : null;
-      if (key !== hoveredKey) {
-        hoveredKey = key;
-        canvas.style.cursor = feat ? 'pointer' : 'default';
-        markDirty();
-      }
-    }
-
-    function onClick(e) {
-      const r    = canvas.getBoundingClientRect();
-      const feat = hitTest(e.clientX - r.left, e.clientY - r.top);
+    function selectDistrictAt(sx, sy) {
+      const feat = hitTest(sx, sy);
       if (!feat) return;
 
       const [stateAbbr, distNum] = feat.key.split('-');
@@ -368,28 +336,234 @@ export default function EndorsedMap() {
         .catch(() => setLoadingCard(false));
     }
 
-    function onWheel(e) {
-      e.preventDefault();
-      targetCam.zoom = Math.max(0.5, Math.min(15, targetCam.zoom * (e.deltaY > 0 ? 0.85 : 1.18)));
-      cancelAnimationFrame(rafAnim);
-      rafAnim = requestAnimationFrame(animateCam);
-    }
+    /** Zoom while keeping the map point under (sx, sy) fixed on screen. */
+    function zoomAt(sx, sy, nextZoom) {
+      const z = Math.max(0.5, Math.min(15, nextZoom));
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      const baseScale = Math.min(w / geoW, h / geoH) * 0.85;
 
-    let dragging = false, dragStart = { x: 0, y: 0 }, camStart = { x: 0, y: 0 };
-    function onMouseDown(e) {
-      dragging  = true;
-      dragStart = { x: e.clientX, y: e.clientY };
-      camStart  = { x: targetCam.x, y: targetCam.y };
-    }
-    function onWindowMove(e) {
-      if (!dragging) return;
-      targetCam.x = camStart.x + e.clientX - dragStart.x;
-      targetCam.y = camStart.y + e.clientY - dragStart.y;
-      cam.x = targetCam.x;
-      cam.y = targetCam.y;
+      const oldScale  = baseScale * cam.zoom;
+      const oldScaleX = geoW * oldScale;
+      const oldScaleY = geoH * oldScale;
+      const oldTransX = w / 2 + cam.x - 0.5 * oldScaleX;
+      const oldTransY = h / 2 + cam.y - 0.5 * oldScaleY;
+      const nx = (sx - oldTransX) / oldScaleX;
+      const ny = (sy - oldTransY) / oldScaleY;
+
+      const newScale  = baseScale * z;
+      const newScaleX = geoW * newScale;
+      const newScaleY = geoH * newScale;
+      const newCamX = sx - w / 2 - (nx - 0.5) * newScaleX;
+      const newCamY = sy - h / 2 - (ny - 0.5) * newScaleY;
+
+      cancelAnimationFrame(rafAnim);
+      cam.zoom = z;       cam.x = newCamX;       cam.y = newCamY;
+      targetCam.zoom = z; targetCam.x = newCamX; targetCam.y = newCamY;
       markDirty();
     }
-    function onMouseUp() { dragging = false; }
+
+    function onWheel(e) {
+      e.preventDefault();
+      const r = canvas.getBoundingClientRect();
+      const sx = e.clientX - r.left;
+      const sy = e.clientY - r.top;
+      const factor = e.deltaY > 0 ? 0.85 : 1.18;
+      zoomAt(sx, sy, cam.zoom * factor);
+    }
+
+    // --- Unified pointer gestures (mouse + touch) ---
+    const DRAG_THRESHOLD = 6;
+    const activePointers = new Map();
+    let gestureMode = null; // null | 'pan' | 'pinch'
+    let didDrag = false;
+    let panOrigin = null;   // { x, y, camX, camY }
+    let pinchOrigin = null; // { dist, midX, midY, zoom, camX, camY }
+
+    function canvasPoint(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+
+    function pointerEntries() {
+      return [...activePointers.values()];
+    }
+
+    function pointerDistance(a, b) {
+      const dx = a.x - b.x, dy = a.y - b.y;
+      return Math.hypot(dx, dy);
+    }
+
+    function pointerMidpoint(a, b) {
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+
+    function beginPinch() {
+      const [a, b] = pointerEntries();
+      if (!a || !b) return;
+      const mid = pointerMidpoint(a, b);
+      gestureMode = 'pinch';
+      didDrag = true;
+      pinchOrigin = {
+        dist: Math.max(1, pointerDistance(a, b)),
+        midX: mid.x,
+        midY: mid.y,
+        zoom: cam.zoom,
+        camX: cam.x,
+        camY: cam.y,
+      };
+      if (hoveredKey !== null) {
+        hoveredKey = null;
+        markDirty();
+      }
+      canvas.style.cursor = 'grabbing';
+    }
+
+    function beginPanFrom(pt) {
+      gestureMode = 'pan';
+      panOrigin = { x: pt.x, y: pt.y, camX: cam.x, camY: cam.y };
+      pinchOrigin = null;
+      canvas.style.cursor = 'grabbing';
+    }
+
+    function onPointerDown(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      const pt = canvasPoint(e);
+      activePointers.set(e.pointerId, pt);
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+
+      if (activePointers.size === 1) {
+        didDrag = false;
+        gestureMode = null;
+        panOrigin = { x: pt.x, y: pt.y, camX: cam.x, camY: cam.y };
+      } else if (activePointers.size === 2) {
+        beginPinch();
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!activePointers.has(e.pointerId)) {
+        // Hover only for mouse when not interacting
+        if (e.pointerType === 'mouse' && activePointers.size === 0) {
+          const pt = canvasPoint(e);
+          const feat = hitTest(pt.x, pt.y);
+          const key  = feat ? feat.key : null;
+          if (key !== hoveredKey) {
+            hoveredKey = key;
+            canvas.style.cursor = feat ? 'pointer' : 'grab';
+            markDirty();
+          }
+        }
+        return;
+      }
+
+      e.preventDefault();
+      activePointers.set(e.pointerId, canvasPoint(e));
+
+      if (activePointers.size >= 2 || gestureMode === 'pinch') {
+        const pts = pointerEntries();
+        if (pts.length < 2 || !pinchOrigin) {
+          if (pts.length >= 2) beginPinch();
+          return;
+        }
+        const [a, b] = pts;
+        const mid = pointerMidpoint(a, b);
+        const dist = Math.max(1, pointerDistance(a, b));
+
+        // Restore camera to pinch start, then zoom at original midpoint,
+        // then pan by midpoint delta so the pinch feels natural.
+        cancelAnimationFrame(rafAnim);
+        cam.x = pinchOrigin.camX;
+        cam.y = pinchOrigin.camY;
+        cam.zoom = pinchOrigin.zoom;
+        targetCam.x = cam.x;
+        targetCam.y = cam.y;
+        targetCam.zoom = cam.zoom;
+
+        zoomAt(pinchOrigin.midX, pinchOrigin.midY, pinchOrigin.zoom * (dist / pinchOrigin.dist));
+
+        const dx = mid.x - pinchOrigin.midX;
+        const dy = mid.y - pinchOrigin.midY;
+        cam.x += dx; cam.y += dy;
+        targetCam.x = cam.x; targetCam.y = cam.y;
+        markDirty();
+        return;
+      }
+
+      // Single-pointer pan (after threshold) or pending tap
+      const pt = activePointers.get(e.pointerId);
+      if (!panOrigin) return;
+      const dx = pt.x - panOrigin.x;
+      const dy = pt.y - panOrigin.y;
+
+      if (!didDrag && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+
+      if (!didDrag) {
+        didDrag = true;
+        gestureMode = 'pan';
+        if (hoveredKey !== null) {
+          hoveredKey = null;
+          markDirty();
+        }
+        canvas.style.cursor = 'grabbing';
+      }
+
+      cancelAnimationFrame(rafAnim);
+      cam.x = panOrigin.camX + (pt.x - panOrigin.x);
+      cam.y = panOrigin.camY + (pt.y - panOrigin.y);
+      targetCam.x = cam.x;
+      targetCam.y = cam.y;
+      markDirty();
+    }
+
+    function onPointerUp(e) {
+      const wasTracked = activePointers.has(e.pointerId);
+      if (!wasTracked) return;
+
+      const pt = canvasPoint(e);
+      activePointers.delete(e.pointerId);
+      try { canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+
+      if (gestureMode === 'pinch') {
+        if (activePointers.size === 1) {
+          beginPanFrom(pointerEntries()[0]);
+        } else if (activePointers.size === 0) {
+          gestureMode = null;
+          pinchOrigin = null;
+          panOrigin = null;
+          didDrag = false;
+          canvas.style.cursor = 'grab';
+        }
+        return;
+      }
+
+      if (activePointers.size === 0) {
+        const wasTap = !didDrag;
+        gestureMode = null;
+        panOrigin = null;
+        pinchOrigin = null;
+        canvas.style.cursor = 'grab';
+
+        if (wasTap) {
+          selectDistrictAt(pt.x, pt.y);
+        }
+        didDrag = false;
+      }
+    }
+
+    function onPointerCancel(e) {
+      activePointers.delete(e.pointerId);
+      if (activePointers.size === 0) {
+        gestureMode = null;
+        panOrigin = null;
+        pinchOrigin = null;
+        didDrag = false;
+        canvas.style.cursor = 'grab';
+      } else if (activePointers.size === 1 && gestureMode === 'pinch') {
+        beginPanFrom(pointerEntries()[0]);
+      }
+    }
 
     const zoomInBtn  = document.getElementById('zoomIn');
     const zoomOutBtn = document.getElementById('zoomOut');
@@ -397,12 +571,11 @@ export default function EndorsedMap() {
     const onZoomIn   = () => { targetCam.zoom = Math.min(targetCam.zoom * 1.5, 15); cancelAnimationFrame(rafAnim); rafAnim = requestAnimationFrame(animateCam); };
     const onZoomOut  = () => { targetCam.zoom = Math.max(targetCam.zoom / 1.5, 0.5); cancelAnimationFrame(rafAnim); rafAnim = requestAnimationFrame(animateCam); };
 
-    canvas.addEventListener('mousemove',  onMouseMove);
-    canvas.addEventListener('click',      onClick);
-    canvas.addEventListener('wheel',      onWheel, { passive: false });
-    canvas.addEventListener('mousedown',  onMouseDown);
-    window.addEventListener('mousemove',  onWindowMove);
-    window.addEventListener('mouseup',    onMouseUp);
+    canvas.addEventListener('pointerdown',   onPointerDown);
+    canvas.addEventListener('pointermove',   onPointerMove);
+    canvas.addEventListener('pointerup',     onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerCancel);
+    canvas.addEventListener('wheel',         onWheel, { passive: false });
     zoomInBtn?.addEventListener('click',  onZoomIn);
     zoomOutBtn?.addEventListener('click', onZoomOut);
     zoomRstBtn?.addEventListener('click', resetView);
@@ -416,12 +589,11 @@ export default function EndorsedMap() {
     return () => {
       cancelAnimationFrame(rafLoop);
       cancelAnimationFrame(rafAnim);
-      canvas.removeEventListener('mousemove',  onMouseMove);
-      canvas.removeEventListener('click',      onClick);
-      canvas.removeEventListener('wheel',      onWheel);
-      canvas.removeEventListener('mousedown',  onMouseDown);
-      window.removeEventListener('mousemove',  onWindowMove);
-      window.removeEventListener('mouseup',    onMouseUp);
+      canvas.removeEventListener('pointerdown',   onPointerDown);
+      canvas.removeEventListener('pointermove',   onPointerMove);
+      canvas.removeEventListener('pointerup',     onPointerUp);
+      canvas.removeEventListener('pointercancel', onPointerCancel);
+      canvas.removeEventListener('wheel',         onWheel);
       zoomInBtn?.removeEventListener('click',  onZoomIn);
       zoomOutBtn?.removeEventListener('click', onZoomOut);
       zoomRstBtn?.removeEventListener('click', resetView);
