@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadGeo } from '../../data/loadGeo';
 import {
-  fetchEndorsedMembers,
+  fetchMemberByBioguideId,
   fetchMemberByDistrict,
   fetchSponsoredLegislation,
   loadHouseRatings,
   finalColorBucket,
 } from '../../data/congress';
+import { ENDORSED, getEndorsedCards } from '../../data/endorsements';
 import logoSrc from '../../assets/logo.jpg';
 import CandidateCarousel from './CandidateCarousel';
 import CandidateView from './CandidateView';
+import EndorsedView from './EndorsedView';
 import './EndorsedMap.css';
+
+const CAROUSEL_CARDS = getEndorsedCards();
 
 const RATING_COLORS = {
   green:  { r: 92,  g: 200, b: 64  },
@@ -129,11 +133,11 @@ function buildFeaturePaths(features, bounds, ratings) {
 
 export default function EndorsedMap() {
   const canvasRef = useRef(null);
-  const [activeCard,    setActiveCard]    = useState(null);   // member object
+  const [activeCard,    setActiveCard]    = useState(null);   // incumbent / map member
+  const [endorsedView,  setEndorsedView]  = useState(null);   // endorsed card when dual view open
   const [legislation,   setLegislation]   = useState([]);
   const [loadingCard,   setLoadingCard]   = useState(false);
   const [loadingLeg,    setLoadingLeg]    = useState(false);
-  const [carouselCards, setCarouselCards] = useState([]);
   const [geo,           setGeo]           = useState(null);
   const [ratings,       setRatings]       = useState(null);
 
@@ -142,13 +146,12 @@ export default function EndorsedMap() {
   const selectedKeyRef = useRef(null);
   const zoomFnRef      = useRef(null);
 
-  // Load geo + house ratings + endorsed carousel members on mount
+  // Load geo + house ratings on mount
   useEffect(() => {
     Promise.all([loadGeo(), loadHouseRatings()]).then(([g, r]) => {
       setGeo(g);
       setRatings(r);
     });
-    fetchEndorsedMembers().then(setCarouselCards);
   }, []);
 
   useEffect(() => {
@@ -286,6 +289,7 @@ export default function EndorsedMap() {
       cam.x = 0;       cam.y = 0;       cam.zoom = 1;
       selectedKeyRef.current = null;
       setActiveCard(null);
+      setEndorsedView(null);
       setLegislation([]);
       markDirty();
     }
@@ -319,6 +323,39 @@ export default function EndorsedMap() {
       setLegislation([]);
       setLoadingLeg(false);
 
+      const endorsedMeta = ENDORSED[feat.key];
+      if (endorsedMeta) {
+        const card = CAROUSEL_CARDS.find((c) => c.distKey === feat.key) ?? {
+          distKey: feat.key,
+          state: stateAbbr,
+          district: Number(distNum),
+          ...endorsedMeta,
+          imageUrl: null,
+        };
+        setEndorsedView(card);
+        if (card.bioguideId) {
+          fetchMemberByBioguideId(card.bioguideId, feat.key)
+            .then((member) => {
+              setActiveCard(member);
+              setLoadingCard(false);
+              if (member?.bioguideId) {
+                setLoadingLeg(true);
+                fetchSponsoredLegislation(member.bioguideId)
+                  .then((bills) => {
+                    setLegislation(bills);
+                    setLoadingLeg(false);
+                  })
+                  .catch(() => setLoadingLeg(false));
+              }
+            })
+            .catch(() => setLoadingCard(false));
+        } else {
+          setLoadingCard(false);
+        }
+        return;
+      }
+
+      setEndorsedView(null);
       fetchMemberByDistrict(stateAbbr, distNum)
         .then((member) => {
           setActiveCard(member);
@@ -602,19 +639,39 @@ export default function EndorsedMap() {
   }, [geo, ratings]);
 
   function handleCardClick(card) {
-    setActiveCard(card);
     selectedKeyRef.current = card.distKey;
     zoomFnRef.current?.(card.distKey);
+    setEndorsedView(card);
+    setActiveCard(null);
+    setLoadingCard(true);
+    setLegislation([]);
+    setLoadingLeg(false);
     if (card.bioguideId) {
-      setLoadingLeg(true);
-      setLegislation([]);
-      fetchSponsoredLegislation(card.bioguideId)
-        .then((bills) => {
-          setLegislation(bills);
-          setLoadingLeg(false);
+      fetchMemberByBioguideId(card.bioguideId, card.distKey)
+        .then((member) => {
+          setActiveCard(member);
+          setLoadingCard(false);
+          if (member?.bioguideId) {
+            setLoadingLeg(true);
+            fetchSponsoredLegislation(member.bioguideId)
+              .then((bills) => {
+                setLegislation(bills);
+                setLoadingLeg(false);
+              })
+              .catch(() => setLoadingLeg(false));
+          }
         })
-        .catch(() => setLoadingLeg(false));
+        .catch(() => setLoadingCard(false));
+    } else {
+      setLoadingCard(false);
     }
+  }
+
+  function closeOverlay() {
+    setActiveCard(null);
+    setEndorsedView(null);
+    setLegislation([]);
+    selectedKeyRef.current = null;
   }
 
   return (
@@ -642,8 +699,8 @@ export default function EndorsedMap() {
 
         <div className="map-wrap">
           <CandidateCarousel
-            cards={carouselCards}
-            activeCard={activeCard?.distKey ?? null}
+            cards={CAROUSEL_CARDS}
+            activeCard={(endorsedView ?? activeCard)?.distKey ?? null}
             onCardClick={handleCardClick}
           />
           <div className="map-main">
@@ -684,17 +741,24 @@ export default function EndorsedMap() {
         </footer>
       </div>
 
-      {(loadingCard || activeCard) && (
+      {endorsedView && (
+        <EndorsedView
+          endorsed={endorsedView}
+          incumbent={activeCard}
+          loadingIncumbent={loadingCard}
+          legislation={legislation}
+          loadingLegislation={loadingLeg}
+          onClose={closeOverlay}
+        />
+      )}
+
+      {!endorsedView && (loadingCard || activeCard) && (
         <CandidateView
           card={activeCard}
           loading={loadingCard}
           legislation={legislation}
           loadingLegislation={loadingLeg}
-          onClose={() => {
-            setActiveCard(null);
-            setLegislation([]);
-            selectedKeyRef.current = null;
-          }}
+          onClose={closeOverlay}
         />
       )}
     </div>

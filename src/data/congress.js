@@ -1,5 +1,3 @@
-import { ENDORSED } from './endorsements';
-
 const API_KEY = import.meta.env.VITE_CONGRESS_API_KEY;
 const BASE    = 'https://api.congress.gov/v3';
 
@@ -127,8 +125,7 @@ function normalizeMember(raw, overrideDistKey = null) {
   }
   const distKey  = overrideDistKey
     ?? (district != null ? `${state}-${district}` : null);
-  const endorsed = distKey ? ENDORSED[distKey] : null;
-  const rating   = distKey ? getHouseRating(distKey) : null;
+  const rating = distKey ? getHouseRating(distKey) : null;
   return {
     bioguideId: raw.bioguideId,
     name:       parseName(raw.name),
@@ -137,7 +134,6 @@ function normalizeMember(raw, overrideDistKey = null) {
     distKey,
     party:      raw.partyName ?? '',
     imageUrl:   raw.depiction?.imageUrl ?? null,
-    status:     endorsed?.status ?? null,
     role:       rating?.role ?? null,
     final:      rating?.final ?? null,
     url:        raw.url ?? null,
@@ -145,24 +141,15 @@ function normalizeMember(raw, overrideDistKey = null) {
 }
 
 /**
- * Fetch the endorsed carousel members by bioguideId.
- * Fires one request per endorsed member in parallel.
+ * Fetch a single member by bioguideId (incumbent for endorsed comparison).
  */
-export async function fetchEndorsedMembers() {
+export async function fetchMemberByBioguideId(bioguideId, overrideDistKey = null) {
   await loadHouseRatings();
-  const entries = Object.entries(ENDORSED);
-  const results = await Promise.allSettled(
-    entries.map(async ([distKey, { bioguideId }]) => {
-      const res = await fetch(`${BASE}/member/${bioguideId}?${qs()}`);
-      if (!res.ok) throw new Error(`${res.status} for ${bioguideId}`);
-      const json = await res.json();
-      const raw  = json.member ?? json;
-      return normalizeMember({ ...raw, bioguideId }, distKey);
-    })
-  );
-  return results
-    .filter((r) => r.status === 'fulfilled')
-    .map((r) => r.value);
+  const res = await fetch(`${BASE}/member/${encodeURIComponent(bioguideId)}?${qs()}`);
+  if (!res.ok) throw new Error(`${res.status} for ${bioguideId}`);
+  const json = await res.json();
+  const raw  = json.member ?? json;
+  return normalizeMember({ ...raw, bioguideId }, overrideDistKey);
 }
 
 /**

@@ -1,10 +1,68 @@
-// District key -> endorsement metadata (state-DISTNUM, matching geojson properties)
-// bioguideId maps to the Congress.gov member record for this district
+// District key -> endorsed candidate metadata (state-DISTNUM, matching geojson properties)
+// bioguideId maps to the Congress.gov member record for the incumbent in this district
+// Photos: src/assets/endorsements/{distKey}.{jpg|jpeg|png|webp}
+
+const photoModules = import.meta.glob('../assets/endorsements/*.{jpg,jpeg,png,webp}', {
+  eager: true,
+  import: 'default',
+});
+
+const PHOTO_BY_KEY = Object.fromEntries(
+  Object.entries(photoModules).map(([path, url]) => {
+    const file = path.split('/').pop() ?? '';
+    const key  = file.replace(/\.(jpe?g|png|webp)$/i, '');
+    return [key, url];
+  })
+);
+
 export const ENDORSED = {
-  'FL-1':  { bioguideId: 'P000622', status: 'won'    },
-  'FL-6':  { bioguideId: 'F000484', status: 'active' },
-  'OH-2':  { bioguideId: 'T000490', status: 'active' },
-  'NC-6':  { bioguideId: 'M001240', status: 'won'    },
-  'UT-3':  { bioguideId: 'K000403', status: 'active' },
-  'NC-14': { bioguideId: 'M001236', status: 'active' },
+  'LA-5': {
+    name: 'Blake Miguez',
+    party: 'Republican',
+    role: 'Candidate for U.S. House',
+    bio: 'Placeholder bio for the endorsed candidate.',
+    status: 'active',
+    bioguideId: 'L000595', // incumbent Julia Letlow
+  },
+  'TX-23': {
+    name: 'Brandon Herrera',
+    party: 'Republican',
+    role: 'Candidate for U.S. House',
+    bio: 'Placeholder bio for the endorsed candidate.',
+    status: 'won',
+    bioguideId: 'G000594', // incumbent Tony Gonzales
+  },
+  'TX-32': {
+    name: 'Jace Yarbrough',
+    party: 'Republican',
+    role: 'Candidate for U.S. House',
+    bio: 'Placeholder bio for the endorsed candidate.',
+    status: 'won',
+    bioguideId: 'J000310', // incumbent Julie Johnson
+  },
 };
+
+/** Build carousel / EndorsedView cards from ENDORSED + local photos (sync). */
+export function getEndorsedCards() {
+  return Object.entries(ENDORSED).map(([distKey, meta]) => {
+    const dash = distKey.indexOf('-');
+    const state = dash === -1 ? distKey : distKey.slice(0, dash);
+    const distRaw = dash === -1 ? null : distKey.slice(dash + 1);
+    const district = distRaw != null && !Number.isNaN(Number(distRaw))
+      ? Number(distRaw)
+      : distRaw;
+
+    return {
+      distKey,
+      state,
+      district,
+      name: meta.name,
+      party: meta.party,
+      role: meta.role,
+      bio: meta.bio,
+      status: meta.status,
+      bioguideId: meta.bioguideId,
+      imageUrl: PHOTO_BY_KEY[distKey] ?? null,
+    };
+  });
+}
