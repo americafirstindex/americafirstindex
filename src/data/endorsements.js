@@ -20,7 +20,7 @@ export const ENDORSED = {
     name: 'Blake Miguez',
     party: 'Republican',
     role: 'Candidate for U.S. House',
-    bio: 'Placeholder bio for the endorsed candidate.',
+    bio: 'Freedom Caucus conservative and former Louisiana House Majority Leader. School choice, term limits, balanced budgets, and no tolerance for Republicans who fold.',
     status: 'active',
     bioguideId: 'L000595', // incumbent Julia Letlow
   },
@@ -28,7 +28,7 @@ export const ENDORSED = {
     name: 'Brandon Herrera',
     party: 'Republican',
     role: 'Candidate for U.S. House',
-    bio: 'Placeholder bio for the endorsed candidate.',
+    bio: 'Second Amendment absolutist and self-made manufacturer who beat the establishment’s man twice. Gun rights without exceptions, borders without excuses.',
     status: 'won',
     bioguideId: 'G000594', // incumbent Tony Gonzales
   },
@@ -36,7 +36,7 @@ export const ENDORSED = {
     name: 'Jace Yarbrough',
     party: 'Republican',
     role: 'Candidate for U.S. House',
-    bio: 'Placeholder bio for the endorsed candidate.',
+    bio: 'Constitutional lawyer who sued the Pentagon over its mandates and DEI regime. Religious liberty, parental rights, an America First judiciary.',
     status: 'won',
     bioguideId: 'J000310', // incumbent Julie Johnson
   },
